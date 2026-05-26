@@ -1,0 +1,88 @@
+{
+  "$schema": "node_modules/albatros/schema.json",
+  "name": "i.m.import.export.bcf",
+  "version": "1.0.0",
+  "displayName": "Импорт и экспорт BCF",
+  "description": "Просмотр, создание и редактирование замечаний в формате BCF",
+  "main": "src/index.ts",
+  "icon": "icons/logo.svg",
+  "sdk": "^1.4.4",
+  "apx": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/imod1n/import.export.bcf-360"
+  },
+  "author": {
+    "name": "Ivan M",
+    "url": ""
+  },
+  "scripts": {
+    "serve": "albatros-cli serve",
+    "build": "albatros-cli build"
+  },
+  "devDependencies": {
+    "albatros": "^1.4.2"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  },
+  "albatros": {
+    "actions": {
+      "bcf_open": {
+        "label": "Показать/скрыть панель BCF",
+        "cmd": "showBcfPanelCmd",
+        "icon": "assignment",
+        "description": "Показать или скрыть панель BCF-замечаний"
+      }
+    },
+    "dynamics": {},
+    "menu": [
+      {
+        "label": "BCF",
+        "submenu": [
+          { "action": "bcf_open" }
+        ]
+      }
+    ],
+    "context": {},
+    "pages": [
+      {
+        "tag": "bcf_tools",
+        "label": "BCF",
+        "groups": [
+          {
+            "tag": "bcf_group",
+            "label": "Замечания",
+            "items": [
+              { "tag": "b", "action": "bcf_open" }
+            ]
+          }
+        ]
+      }
+    ],
+    "statusbar": {},
+    "viewsContainers": {
+      "bcfContainer": {
+        "label": "BCF",
+        "icon": "assignment",
+        "order": 50,
+        "container": "bottom"
+      }
+    },
+    "views": {
+      "bcfView": {
+        "label": "BCF",
+        "type": "defined",
+        "icon": "assignment",
+        "container": "bcfContainer",
+        "cmd": "mountBcfPanel",
+        "expanded": true
+      }
+    },
+    "rules": {},
+    "properties": {},
+    "storages": {},
+    "editors": {},
+    "broadcasts": {}
+  }
+}

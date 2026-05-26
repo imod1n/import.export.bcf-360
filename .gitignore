@@ -1,0 +1,8 @@
+node_modules/
+dist/
+apx/
+*.apx
+.env
+.DS_Store
+Thumbs.db
+docs/
