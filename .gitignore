@@ -6,3 +6,6 @@ apx/
 .DS_Store
 Thumbs.db
 docs/
+.claude/
+SKILL.md
+CLAUDE.md
