@@ -283,7 +283,7 @@
 
         <!-- Viewpoints -->
         <div v-if="selectedTopic.viewpoints.length" class="bcf-section">
-          <div class="bcf-section-label">{{ $tr('Точки зрения') }}</div>
+          <div class="bcf-section-label">{{ $tr('Просмотр в модели') }}</div>
           <div class="bcf-vp-list">
             <button
               v-for="(vp, i) in selectedTopic.viewpoints"
@@ -295,7 +295,7 @@
                 <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
                 <polygon points="10,8 17,12 10,16"/>
               </svg>
-              {{ $tr('Перейти') }}{{ selectedTopic.viewpoints.length > 1 ? ` ${i + 1}` : '' }}
+              {{ $tr('Перейти к виду') }}{{ selectedTopic.viewpoints.length > 1 ? ` ${i + 1}` : '' }}
             </button>
           </div>
         </div>

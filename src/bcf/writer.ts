@@ -10,17 +10,15 @@ function xmlEscape(s: string): string {
 }
 
 function serializeMarkup(topic: BcfTopic): string {
-    const comments = topic.comments.map(c => `  <Comment>
-    <Guid>${xmlEscape(c.guid)}</Guid>
+    const comments = topic.comments.map(c => `  <Comment Guid="${xmlEscape(c.guid)}">
     <Date>${xmlEscape(c.date)}</Date>
     <Author>${xmlEscape(c.author)}</Author>
     <Comment>${xmlEscape(c.comment)}</Comment>${c.viewpointGuid ? `\n    <Viewpoint Guid="${xmlEscape(c.viewpointGuid)}"/>` : ''}${c.modifiedDate ? `\n    <ModifiedDate>${xmlEscape(c.modifiedDate)}</ModifiedDate>` : ''}${c.modifiedAuthor ? `\n    <ModifiedAuthor>${xmlEscape(c.modifiedAuthor)}</ModifiedAuthor>` : ''}
   </Comment>`).join('\n');
 
-    const viewpoints = topic.viewpoints.map(vp => `    <ViewPoint>
-      <Guid>${xmlEscape(vp.guid)}</Guid>
-      <Viewpoint>${xmlEscape(vp.viewpointFile)}</Viewpoint>${vp.snapshotFile ? `\n      <Snapshot>${xmlEscape(vp.snapshotFile)}</Snapshot>` : ''}
-    </ViewPoint>`).join('\n');
+    const viewpoints = topic.viewpoints.map(vp => `  <Viewpoints Guid="${xmlEscape(vp.guid)}">
+    <Viewpoint>${xmlEscape(vp.viewpointFile)}</Viewpoint>${vp.snapshotFile ? `\n    <Snapshot>${xmlEscape(vp.snapshotFile)}</Snapshot>` : ''}
+  </Viewpoints>`).join('\n');
 
     return `<?xml version="1.0" encoding="utf-8"?>
 <Markup xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
@@ -30,9 +28,7 @@ function serializeMarkup(topic: BcfTopic): string {
     <CreationAuthor>${xmlEscape(topic.creationAuthor)}</CreationAuthor>${topic.modifiedDate ? `\n    <ModifiedDate>${xmlEscape(topic.modifiedDate)}</ModifiedDate>` : ''}${topic.modifiedAuthor ? `\n    <ModifiedAuthor>${xmlEscape(topic.modifiedAuthor)}</ModifiedAuthor>` : ''}${topic.dueDate ? `\n    <DueDate>${xmlEscape(topic.dueDate)}</DueDate>` : ''}${topic.index !== undefined ? `\n    <Index>${topic.index}</Index>` : ''}
   </Topic>
 ${comments}
-  <Viewpoints>
 ${viewpoints}
-  </Viewpoints>
 </Markup>`;
 }
 

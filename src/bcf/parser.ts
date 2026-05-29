@@ -108,12 +108,22 @@ function parseMarkupXml(xml: string): Pick<BcfTopic, 'guid' | 'title' | 'descrip
     });
 
     const viewpointRefs: Array<{ guid: string; file: string; snapshotFile?: string }> = [];
-    doc.querySelectorAll('ViewPoint, Viewpoints > ViewPoint').forEach(vp => {
-        const file = vp.querySelector('Viewpoint')?.textContent?.trim() ?? '';
-        const snapshot = vp.querySelector('Snapshot')?.textContent?.trim();
-        const vpGuid = vp.querySelector('Guid')?.textContent?.trim() ?? vp.getAttribute('Guid') ?? crypto.randomUUID();
-        if (file) {
-            viewpointRefs.push({ guid: vpGuid, file, snapshotFile: snapshot });
+    doc.querySelectorAll('Viewpoints').forEach(el => {
+        if (el.hasAttribute('Guid')) {
+            // BCF 2.1: <Viewpoints Guid="..."> — сам вьюпоинт
+            const file = el.querySelector('Viewpoint')?.textContent?.trim() ?? '';
+            const snapshot = el.querySelector('Snapshot')?.textContent?.trim();
+            const vpGuid = el.getAttribute('Guid')!;
+            if (file) viewpointRefs.push({ guid: vpGuid, file, snapshotFile: snapshot });
+        } else {
+            // Старый формат: <Viewpoints> — контейнер с <ViewPoint> детьми
+            el.querySelectorAll('ViewPoint').forEach(vp => {
+                const file = vp.querySelector('Viewpoint')?.textContent?.trim() ?? '';
+                const snapshot = vp.querySelector('Snapshot')?.textContent?.trim();
+                const vpGuid = vp.querySelector('Guid')?.textContent?.trim()
+                    ?? vp.getAttribute('Guid') ?? crypto.randomUUID();
+                if (file) viewpointRefs.push({ guid: vpGuid, file, snapshotFile: snapshot });
+            });
         }
     });
 
