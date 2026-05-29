@@ -24,6 +24,7 @@
     "albatros": "^1.4.2"
   },
   "dependencies": {
+    "html-to-image": "^1.11.13",
     "jszip": "^3.10.1"
   },
   "albatros": {
@@ -46,7 +47,9 @@
       {
         "label": "BCF",
         "submenu": [
-          { "action": "bcf_open" }
+          {
+            "action": "bcf_open"
+          }
         ]
       }
     ],
@@ -60,8 +63,14 @@
             "tag": "bcf_group",
             "label": "Замечания",
             "items": [
-              { "tag": "b", "action": "bcf_username" },
-              { "tag": "b", "action": "bcf_open" }
+              {
+                "tag": "b",
+                "action": "bcf_username"
+              },
+              {
+                "tag": "b",
+                "action": "bcf_open"
+              }
             ]
           }
         ]

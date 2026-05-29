@@ -378,6 +378,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 import JSZip from 'jszip';
+import { toBlob as domToBlob } from 'html-to-image';
 import { store } from '../store';
 import { parseBcfFile } from '../bcf/parser';
 import { serializeBcf, createNewTopicFolder, buildViewpointFromCamera } from '../bcf/writer';
@@ -775,24 +776,67 @@ export default defineComponent({
             await this.pickSnapshot();
         },
 
-        tryCanvasCapture(): Promise<Blob | null> {
-            return new Promise(resolve => {
-                const canvases = Array.from(document.querySelectorAll('canvas'));
-                if (!canvases.length) { resolve(null); return; }
-                const largest = canvases.reduce((a, b) =>
-                    a.width * a.height > b.width * b.height ? a : b
-                );
-                try {
-                    // Force repaint and capture synchronously — toDataURL() reads the
-                    // WebGL framebuffer before the browser composites and clears it.
-                    this.$ctx().cadview?.repaint();
-                    const url = largest.toDataURL('image/png');
-                    if (url.length < 5000) { resolve(null); return; }
-                    fetch(url).then(r => r.blob()).then(blob => resolve(blob)).catch(() => resolve(null));
-                } catch {
-                    resolve(null);
-                }
+        async tryCanvasCapture(): Promise<Blob | null> {
+            const cadview = this.$ctx().cadview;
+
+            // 1. Repaint + toDataURL synchronously — reads WebGL framebuffer before it's cleared.
+            cadview?.repaint();
+            const canvases = Array.from(document.querySelectorAll('canvas'));
+            if (!canvases.length) return null;
+            const glCanvas = canvases.reduce((a, b) =>
+                a.width * a.height > b.width * b.height ? a : b
+            );
+
+            let webglDataUrl: string;
+            try {
+                webglDataUrl = glCanvas.toDataURL('image/png');
+                if (webglDataUrl.length < 5000) return null;
+            } catch { return null; }
+
+            // 2. Find container holding annotation overlays as siblings of the canvas.
+            let container: HTMLElement = glCanvas;
+            for (let i = 0; i < 5; i++) {
+                const p = container.parentElement;
+                if (!p || p === document.body) break;
+                container = p;
+                if (Array.from(container.children).some(c => c.tagName !== 'CANVAS')) break;
+            }
+
+            const hasOverlays = Array.from(container.children).some(c => c.tagName !== 'CANVAS');
+            if (!hasOverlays) {
+                return fetch(webglDataUrl).then(r => r.blob()).catch(() => null);
+            }
+
+            // 3. Preload the captured WebGL frame.
+            const webglImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = webglDataUrl;
             });
+
+            // 4. html-to-image cannot read a WebGL canvas with preserveDrawingBuffer=false.
+            //    Temporarily swap it with a plain 2D canvas containing the captured frame,
+            //    let html-to-image render the composite, then restore the original.
+            const parent = glCanvas.parentElement;
+            if (!parent) return fetch(webglDataUrl).then(r => r.blob()).catch(() => null);
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = glCanvas.width;
+            tempCanvas.height = glCanvas.height;
+            tempCanvas.className = glCanvas.className;
+            tempCanvas.style.cssText = glCanvas.style.cssText;
+            tempCanvas.getContext('2d')?.drawImage(webglImg, 0, 0);
+            parent.replaceChild(tempCanvas, glCanvas);
+
+            try {
+                const blob = await domToBlob(container, { pixelRatio: 1 });
+                return blob ?? null;
+            } catch {
+                return fetch(webglDataUrl).then(r => r.blob()).catch(() => null);
+            } finally {
+                parent.replaceChild(glCanvas, tempCanvas);
+            }
         },
 
         async pickSnapshot() {
