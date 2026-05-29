@@ -188,13 +188,13 @@
             <div class="bcf-field-group-label">{{ $tr('Данные вида') }}</div>
             <div class="bcf-field bcf-field--row">
               <label class="bcf-label">{{ $tr('Снимок') }}</label>
-              <button class="bcf-outline-btn" :class="{ 'bcf-outline-btn--captured': !!newSnapshotName }" @click="pickSnapshot">
+              <button class="bcf-outline-btn" :class="{ 'bcf-outline-btn--captured': !!newSnapshotName }" @click="captureViewSnapshot">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <rect x="3" y="3" width="18" height="18" rx="2"/>
                   <circle cx="8.5" cy="8.5" r="1.5"/>
                   <polyline points="21 15 16 10 5 21"/>
                 </svg>
-                <span>{{ newSnapshotName ?? $tr('Выбрать файл') }}</span>
+                <span>{{ newSnapshotName ?? $tr('Снимок вида') }}</span>
               </button>
             </div>
             <div class="bcf-field bcf-field--row">
@@ -774,6 +774,36 @@ export default defineComponent({
             this.capturedCamera = null;
             this.capturedGuids = [];
             this.createFormVisible = true;
+        },
+
+        async captureViewSnapshot() {
+            const blob = await this.tryCanvasCapture();
+            if (blob) {
+                this.newSnapshotBlob = blob;
+                this.newSnapshotName = 'snapshot.png';
+                return;
+            }
+            await this.pickSnapshot();
+        },
+
+        tryCanvasCapture(): Promise<Blob | null> {
+            return new Promise(resolve => {
+                const canvases = Array.from(document.querySelectorAll('canvas'));
+                if (!canvases.length) { resolve(null); return; }
+                const largest = canvases.reduce((a, b) =>
+                    a.width * a.height > b.width * b.height ? a : b
+                );
+                try {
+                    // Force repaint and capture synchronously — toDataURL() reads the
+                    // WebGL framebuffer before the browser composites and clears it.
+                    this.$ctx().cadview?.repaint();
+                    const url = largest.toDataURL('image/png');
+                    if (url.length < 5000) { resolve(null); return; }
+                    fetch(url).then(r => r.blob()).then(blob => resolve(blob)).catch(() => resolve(null));
+                } catch {
+                    resolve(null);
+                }
+            });
         },
 
         async pickSnapshot() {
