@@ -123,7 +123,6 @@ export function buildViewpointFromCamera(
     return {
         guid: vpGuid,
         viewpointFile: 'viewpoint.bcfv',
-        snapshotFile: 'snapshot.png',
         components: ifcGuids.map(g => ({ ifcGuid: g })),
         camera: {
             viewPoint: position,

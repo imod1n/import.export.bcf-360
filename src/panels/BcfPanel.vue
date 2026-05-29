@@ -885,7 +885,7 @@ export default defineComponent({
                 if (store.zip) {
                     let vp = t.viewpoints[0];
                     if (!vp) {
-                        vp = { guid: crypto.randomUUID(), viewpointFile: 'viewpoint.bcfvp', snapshotFile: 'snapshot.png', components: [] };
+                        vp = { guid: crypto.randomUUID(), viewpointFile: 'viewpoint.bcfv', snapshotFile: 'snapshot.png', components: [] };
                         t.viewpoints.push(vp);
                     }
                     if (!vp.snapshotFile) vp.snapshotFile = 'snapshot.png';
@@ -1036,6 +1036,7 @@ export default defineComponent({
                 this.capturedCamera?.platformData,
             );
             if (!this.capturedCamera) viewpoint.camera = undefined;
+            if (this.newSnapshotBlob) viewpoint.snapshotFile = 'snapshot.png';
 
             const topic = {
                 guid,
