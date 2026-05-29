@@ -1,11 +1,16 @@
 import type { Context } from 'albatros';
 import { createApp } from 'vue';
 import BcfPanel from './panels/BcfPanel.vue';
+import { store } from './store';
 
 export default {
-    mountBcfPanel: (ctx: Context): void => {
+    mountBcfPanel: async (ctx: Context): Promise<void> => {
         const el = (ctx as any).el as HTMLElement | undefined;
         if (!el) return;
+
+        const saved = await ctx.extension.settings('bcf_prefs').get<string>('username');
+        if (saved) store.username = saved;
+
         const app = createApp(BcfPanel);
         app.config.globalProperties.$ctx = () => ctx;
         app.config.globalProperties.$tr = (msg: string, ...args: any[]) => ctx.tr(msg, ...args);
@@ -23,6 +28,33 @@ export default {
         } else {
             panelBar.visible = true;
             panelBar.activeView = target;
+        }
+    },
+
+    setUsernameCmd: async (ctx: Context): Promise<void> => {
+        const current = store.username || (ctx.manager as any)?.username || 'Unknown';
+
+        const choice = await ctx.showQuickPick(
+            [
+                { label: 'Текущий пользователь', description: current },
+                { label: 'Изменить пользователя' },
+            ],
+            { title: 'Имя пользователя', placeHolder: 'Выберите действие' },
+        );
+
+        if (!choice || (choice as any).label !== 'Изменить пользователя') return;
+
+        const newName = await ctx.showInputBox({
+            title: 'Имя пользователя',
+            prompt: 'Введите имя, которое будет указано автором замечаний и комментариев',
+            value: store.username || '',
+            placeHolder: 'Например: Иван Петров',
+            validateInput: (v: string) => v.trim() ? undefined : 'Имя не может быть пустым',
+        });
+
+        if (newName?.trim()) {
+            store.username = newName.trim();
+            await ctx.extension.settings('bcf_prefs').set('username', store.username);
         }
     },
 } satisfies Record<string, (ctx: Context) => unknown>;

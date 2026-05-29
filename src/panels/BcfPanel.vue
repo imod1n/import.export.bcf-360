@@ -586,7 +586,7 @@ export default defineComponent({
             t.comments.push({
                 guid: crypto.randomUUID(),
                 date: new Date().toISOString(),
-                author: (ctx.manager as any)?.username ?? 'Unknown',
+                author: store.username || (ctx.manager as any)?.username || 'Unknown',
                 comment: this.newComment.trim(),
             });
             this.newComment = '';
@@ -781,7 +781,7 @@ export default defineComponent({
             const ctx = this.$ctx();
             const guid = crypto.randomUUID();
             const now = new Date().toISOString();
-            const author = (ctx.manager as any)?.username ?? 'Unknown';
+            const author = store.username || (ctx.manager as any)?.username || 'Unknown';
 
             const vpGuid = crypto.randomUUID();
             const viewpoint = buildViewpointFromCamera(

@@ -33,6 +33,12 @@
         "cmd": "showBcfPanelCmd",
         "icon": "assignment",
         "description": "Показать или скрыть панель BCF-замечаний"
+      },
+      "bcf_username": {
+        "label": "Имя пользователя",
+        "cmd": "setUsernameCmd",
+        "icon": "person",
+        "description": "Задать имя автора для замечаний и комментариев"
       }
     },
     "dynamics": {},
@@ -54,6 +60,7 @@
             "tag": "bcf_group",
             "label": "Замечания",
             "items": [
+              { "tag": "b", "action": "bcf_username" },
               { "tag": "b", "action": "bcf_open" }
             ]
           }

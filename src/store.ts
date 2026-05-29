@@ -10,6 +10,7 @@ export interface StoreState {
     fileName: string | null;
     zip: JSZip | null;
     isDirty: boolean;
+    username: string;
 }
 
 export const store = reactive<StoreState>({
@@ -20,6 +21,7 @@ export const store = reactive<StoreState>({
     fileName: null,
     zip: null,
     isDirty: false,
+    username: '',
 });
 
 export function getSelectedTopic(): BcfTopic | undefined {
