@@ -599,8 +599,17 @@ export default defineComponent({
             this.markDirty(t.guid);
         },
 
-        deleteTopic(guid: string) {
-            if (!confirm(this.$tr('Удалить замечание? Это действие необратимо.'))) return;
+        async deleteTopic(guid: string) {
+            const ctx = this.$ctx();
+            try {
+                await ctx.showMessage(
+                    this.$tr('Удалить замечание? Это действие необратимо.'),
+                    'question',
+                    { destructive: true, resolveTitle: this.$tr('Удалить'), rejectTitle: this.$tr('Отмена') }
+                );
+            } catch {
+                return;
+            }
             if (store.zip) {
                 store.zip.remove(`${guid}/`);
             }
@@ -611,8 +620,17 @@ export default defineComponent({
             store.isDirty = true;
         },
 
-        deleteComment(commentGuid: string) {
-            if (!confirm(this.$tr('Удалить комментарий?'))) return;
+        async deleteComment(commentGuid: string) {
+            const ctx = this.$ctx();
+            try {
+                await ctx.showMessage(
+                    this.$tr('Удалить комментарий?'),
+                    'question',
+                    { resolveTitle: this.$tr('Удалить'), rejectTitle: this.$tr('Отмена') }
+                );
+            } catch {
+                return;
+            }
             const t = this.selectedTopic;
             if (!t) return;
             t.comments = t.comments.filter(c => c.guid !== commentGuid);
