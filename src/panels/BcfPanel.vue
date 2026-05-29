@@ -187,19 +187,8 @@
           <div class="bcf-field-group">
             <div class="bcf-field-group-label">{{ $tr('Данные вида') }}</div>
             <div class="bcf-field bcf-field--row">
-              <label class="bcf-label">{{ $tr('Снимок') }}</label>
-              <button class="bcf-outline-btn" :class="{ 'bcf-outline-btn--captured': !!newSnapshotName }" @click="captureViewSnapshot">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
-                </svg>
-                <span>{{ newSnapshotName ?? $tr('Снимок вида') }}</span>
-              </button>
-            </div>
-            <div class="bcf-field bcf-field--row">
               <label class="bcf-label">{{ $tr('Камера') }}</label>
-              <button class="bcf-outline-btn" :class="{ 'bcf-outline-btn--captured': !!capturedCamera }" @click="captureViewpoint" :title="$tr('Захватить текущую позицию камеры')">
+              <button class="bcf-outline-btn" :class="{ 'bcf-outline-btn--captured': !!capturedCamera }" @click="captureViewpoint" :title="$tr('Захватить текущую позицию камеры и снимок вида')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
@@ -824,7 +813,7 @@ export default defineComponent({
             this.newSnapshotName = ws.root.title;
         },
 
-        captureViewpoint() {
+        async captureViewpoint() {
             const ctx = this.$ctx();
             const cadview = ctx.cadview;
 
@@ -854,7 +843,14 @@ export default defineComponent({
                 fieldOfView: 60,
                 platformData: snap,
             };
-            ctx.showMessage(this.$tr('Позиция камеры захвачена'), 'info');
+
+            const blob = await this.tryCanvasCapture();
+            if (blob) {
+                this.newSnapshotBlob = blob;
+                this.newSnapshotName = 'snapshot.png';
+            }
+
+            ctx.showMessage(this.$tr('Вид захвачен'), 'info');
         },
 
         async replaceViewpoint(vp: BcfViewpoint) {
@@ -912,27 +908,31 @@ export default defineComponent({
                     newComponents = [];
                 }
             } else {
-                // Has selection — ask replace / merge / keep
-                const items: { label: string; description?: string }[] = [
-                    { label: this.$tr('Заменить на выделенные'), description: this.$tr('Элементов: {0}', newGuids.length) },
-                ];
-                if (freshGuids.length > 0) {
-                    items.push({ label: this.$tr('Дополнить выделенными'), description: this.$tr('+{0} новых, итого: {1}', freshGuids.length, vp.components.length + freshGuids.length) });
-                }
-                items.push({ label: this.$tr('Оставить прежний список'), description: this.$tr('Элементов: {0}', vp.components.length) });
-
-                const choice = await ctx.showQuickPick(items, {
-                    title: this.$tr('Выделенные IFC-элементы'),
-                    placeHolder: this.$tr('Выделено в модели: {0}', newGuids.length),
-                });
-                const chosen = (choice as any)?.label;
-                if (chosen === this.$tr('Заменить на выделенные')) {
-                    newComponents = newGuids.map(g => ({ ifcGuid: g }));
-                } else if (chosen === this.$tr('Дополнить выделенными')) {
-                    newComponents = [
-                        ...vp.components,
-                        ...freshGuids.map(g => ({ ifcGuid: g })),
+                // Selection is identical to existing components — nothing to ask
+                const isIdentical = freshGuids.length === 0 && newGuids.length === vp.components.length;
+                if (!isIdentical) {
+                    // Has selection — ask replace / merge / keep
+                    const items: { label: string; description?: string }[] = [
+                        { label: this.$tr('Заменить на выделенные'), description: this.$tr('Элементов: {0}', newGuids.length) },
                     ];
+                    if (freshGuids.length > 0) {
+                        items.push({ label: this.$tr('Дополнить выделенными'), description: this.$tr('+{0} новых, итого: {1}', freshGuids.length, vp.components.length + freshGuids.length) });
+                    }
+                    items.push({ label: this.$tr('Оставить прежний список'), description: this.$tr('Элементов: {0}', vp.components.length) });
+
+                    const choice = await ctx.showQuickPick(items, {
+                        title: this.$tr('Выделенные IFC-элементы'),
+                        placeHolder: this.$tr('Выделено в модели: {0}', newGuids.length),
+                    });
+                    const chosen = (choice as any)?.label;
+                    if (chosen === this.$tr('Заменить на выделенные')) {
+                        newComponents = newGuids.map(g => ({ ifcGuid: g }));
+                    } else if (chosen === this.$tr('Дополнить выделенными')) {
+                        newComponents = [
+                            ...vp.components,
+                            ...freshGuids.map(g => ({ ifcGuid: g })),
+                        ];
+                    }
                 }
             }
 
@@ -946,6 +946,14 @@ export default defineComponent({
             vp.components = newComponents;
 
             const t = this.selectedTopic;
+
+            const snapshotBlob = await this.tryCanvasCapture();
+            if (snapshotBlob && t && store.zip) {
+                if (!vp.snapshotFile) vp.snapshotFile = 'snapshot.png';
+                store.zip.file(`${t.guid}/${vp.snapshotFile}`, snapshotBlob);
+                t.snapshotDataUrl = await blobToDataUrl(snapshotBlob);
+            }
+
             if (t) this.markDirty(t.guid);
             ctx.showMessage(this.$tr('Вид заменён'), 'info');
         },
@@ -1014,7 +1022,7 @@ export default defineComponent({
             }
         },
 
-        addViewpoint() {
+        async addViewpoint() {
             const ctx = this.$ctx();
             const cadview = ctx.cadview;
             if (!cadview) {
@@ -1055,6 +1063,14 @@ export default defineComponent({
                 guids,
                 snap,
             );
+
+            const snapshotBlob = await this.tryCanvasCapture();
+            if (snapshotBlob && store.zip) {
+                viewpoint.snapshotFile = 'snapshot.png';
+                store.zip.file(`${t.guid}/snapshot.png`, snapshotBlob);
+                t.snapshotDataUrl = await blobToDataUrl(snapshotBlob);
+            }
+
             t.viewpoints.push(viewpoint);
             this.markDirty(t.guid);
             ctx.showMessage(this.$tr('Вид добавлен'), 'info');
