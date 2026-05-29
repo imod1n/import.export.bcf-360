@@ -234,12 +234,20 @@
               <span v-if="selectedTopic.creationAuthor" class="bcf-detail-author">{{ selectedTopic.creationAuthor }}</span>
             </div>
           </div>
-          <button class="bcf-icon-btn bcf-icon-btn--danger" @click="deleteTopic(selectedTopic.guid)" :title="$tr('Удалить замечание')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-            </svg>
-          </button>
+          <template v-if="isOwner">
+            <button class="bcf-icon-btn" @click="editTopicFields" :title="$tr('Редактировать')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button class="bcf-icon-btn bcf-icon-btn--danger" @click="deleteTopic(selectedTopic.guid)" :title="$tr('Удалить замечание')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+            </button>
+          </template>
         </div>
 
         <!-- Snapshot — первым делом после заголовка -->
@@ -269,7 +277,7 @@
           <div class="bcf-prop-row">
             <label>{{ $tr('Приоритет') }}</label>
             <div class="bcf-select-wrap">
-              <select v-model="editPriority" @change="updatePriority" class="bcf-select">
+              <select v-model="editPriority" @change="updatePriority" class="bcf-select" :disabled="!isOwner">
                 <option value="">—</option>
                 <option v-for="p in priorities" :key="p" :value="p">{{ p }}</option>
               </select>
@@ -277,25 +285,39 @@
           </div>
           <div class="bcf-prop-row">
             <label>{{ $tr('Ответственный') }}</label>
-            <input v-model="editAssignedTo" @change="updateAssignedTo" class="bcf-input" type="text" />
+            <input v-model="editAssignedTo" @change="updateAssignedTo" class="bcf-input" type="text" :disabled="!isOwner" />
           </div>
         </div>
 
         <!-- Viewpoints -->
-        <div v-if="selectedTopic.viewpoints.length" class="bcf-section">
+        <div v-if="selectedTopic.viewpoints.some(vp => vp.camera) || isOwner" class="bcf-section">
           <div class="bcf-section-label">{{ $tr('Просмотр в модели') }}</div>
           <div class="bcf-vp-list">
-            <button
-              v-for="(vp, i) in selectedTopic.viewpoints"
-              :key="vp.guid"
-              class="bcf-vp-btn"
-              @click="navigateViewpoint(vp)"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
-                <polygon points="10,8 17,12 10,16"/>
+            <template v-for="(vp, i) in selectedTopic.viewpoints.filter(v => v.camera)" :key="vp.guid">
+              <div class="bcf-vp-row">
+                <button class="bcf-vp-btn" @click="navigateViewpoint(vp)">
+                  <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <polygon points="10,8 17,12 10,16"/>
+                  </svg>
+                  {{ $tr('Перейти к виду') }}{{ selectedTopic.viewpoints.filter(v => v.camera).length > 1 ? ` ${i + 1}` : '' }}
+                </button>
+                <button v-if="isOwner" class="bcf-vp-btn bcf-vp-btn--replace" @click="replaceViewpoint(vp)" :title="$tr('Заменить текущим видом камеры')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 4v6h6"/><path d="M23 20v-6h-6"/>
+                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                  </svg>
+                  {{ $tr('Заменить вид') }}
+                </button>
+              </div>
+            </template>
+            <button v-if="isOwner && !selectedTopic.viewpoints.some(vp => vp.camera)" class="bcf-vp-btn" @click="addViewpoint">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="16"/>
+                <line x1="8" y1="12" x2="16" y2="12"/>
               </svg>
-              {{ $tr('Перейти к виду') }}{{ selectedTopic.viewpoints.length > 1 ? ` ${i + 1}` : '' }}
+              {{ $tr('Добавить вид') }}
             </button>
           </div>
         </div>
@@ -311,7 +333,7 @@
             <div class="bcf-comment-header">
               <span class="bcf-comment-author">{{ c.author }}</span>
               <time class="bcf-comment-time">{{ formatDate(c.date) }}</time>
-              <button class="bcf-icon-btn bcf-icon-btn--sm bcf-icon-btn--ghost bcf-comment-del" @click="deleteComment(c.guid)" :title="$tr('Удалить комментарий')">
+              <button v-if="isOwner || c.author === store.username" class="bcf-icon-btn bcf-icon-btn--sm bcf-icon-btn--ghost bcf-comment-del" @click="deleteComment(c.guid)" :title="$tr('Удалить комментарий')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
                   <line x1="18" y1="6" x2="6" y2="18"/>
                   <line x1="6" y1="6" x2="18" y2="18"/>
@@ -412,6 +434,12 @@ export default defineComponent({
                 { value: 'ReOpened',     label: this.$tr('Повторное') },
                 { value: 'Closed',       label: this.$tr('Закрыто') },
             ];
+        },
+        isOwner(): boolean {
+            const t = this.selectedTopic;
+            if (!t) return false;
+            const u = store.username;
+            return !!u && t.creationAuthor === u;
         },
     },
     watch: {
@@ -541,7 +569,19 @@ export default defineComponent({
         updateStatus() {
             const t = this.selectedTopic;
             if (!t) return;
-            t.status = this.editStatus;
+            const prev = t.status;
+            const next = this.editStatus;
+            if (prev === next) return;
+            t.status = next;
+            const ctx = this.$ctx();
+            const prevLabel = this.statusLabel(prev);
+            const nextLabel = this.statusLabel(next);
+            t.comments.push({
+                guid: crypto.randomUUID(),
+                date: new Date().toISOString(),
+                author: store.username || (ctx.manager as any)?.username || 'Unknown',
+                comment: `Статус замечания изменён с "${prevLabel}" на "${nextLabel}"`,
+            });
             this.markDirty(t.guid);
         },
 
@@ -697,6 +737,209 @@ export default defineComponent({
                 platformData: snap,
             };
             ctx.showMessage(this.$tr('Позиция камеры захвачена'), 'info');
+        },
+
+        async replaceViewpoint(vp: BcfViewpoint) {
+            const ctx = this.$ctx();
+            const cadview = ctx.cadview;
+            if (!cadview) {
+                ctx.showMessage(this.$tr('Нет активного вида'), 'warning');
+                return;
+            }
+
+            // Capture camera
+            let stored: any;
+            try {
+                stored = cadview.storeView();
+            } catch {
+                ctx.showMessage(this.$tr('Не удалось захватить вид'), 'error');
+                return;
+            }
+            const snap = JSON.parse(JSON.stringify(stored));
+
+            // Capture current IFC selection (same logic as captureSelection)
+            const newGuids: string[] = [];
+            const seen = new Set<string>();
+            const extractGuid = (layer: any): string | undefined => {
+                if (!layer || typeof layer.typedValueExpanded !== 'function') return undefined;
+                try {
+                    const v = layer.typedValueExpanded('ifc.id')?.$value;
+                    if (v) return String(v);
+                } catch { /* ignore */ }
+                return undefined;
+            };
+            try {
+                for (const obj of cadview.layer.selectedObjects()) {
+                    const layer = (obj as any)?.layer ?? obj;
+                    const id = extractGuid(layer);
+                    if (id && !seen.has(id)) { seen.add(id); newGuids.push(id); }
+                }
+            } catch { /* ignore */ }
+
+            // Resolve components update via showQuickPick
+            const existingGuids = new Set(vp.components.map(c => c.ifcGuid));
+            const freshGuids = newGuids.filter(g => !existingGuids.has(g));
+            let newComponents = vp.components;
+
+            if (newGuids.length === 0) {
+                // No selection — ask whether to clear or keep
+                const choice = await ctx.showQuickPick(
+                    [
+                        { label: this.$tr('Оставить прежний список'), description: this.$tr('Элементов: {0}', vp.components.length) },
+                        { label: this.$tr('Обнулить список элементов') },
+                    ],
+                    { title: this.$tr('Выделенные IFC-элементы'), placeHolder: this.$tr('Нет выделения в модели') },
+                );
+                if ((choice as any)?.label === this.$tr('Обнулить список элементов')) {
+                    newComponents = [];
+                }
+            } else {
+                // Has selection — ask replace / merge / keep
+                const items: { label: string; description?: string }[] = [
+                    { label: this.$tr('Заменить на выделенные'), description: this.$tr('Элементов: {0}', newGuids.length) },
+                ];
+                if (freshGuids.length > 0) {
+                    items.push({ label: this.$tr('Дополнить выделенными'), description: this.$tr('+{0} новых, итого: {1}', freshGuids.length, vp.components.length + freshGuids.length) });
+                }
+                items.push({ label: this.$tr('Оставить прежний список'), description: this.$tr('Элементов: {0}', vp.components.length) });
+
+                const choice = await ctx.showQuickPick(items, {
+                    title: this.$tr('Выделенные IFC-элементы'),
+                    placeHolder: this.$tr('Выделено в модели: {0}', newGuids.length),
+                });
+                const chosen = (choice as any)?.label;
+                if (chosen === this.$tr('Заменить на выделенные')) {
+                    newComponents = newGuids.map(g => ({ ifcGuid: g }));
+                } else if (chosen === this.$tr('Дополнить выделенными')) {
+                    newComponents = [
+                        ...vp.components,
+                        ...freshGuids.map(g => ({ ifcGuid: g })),
+                    ];
+                }
+            }
+
+            vp.camera = {
+                viewPoint: [snap.position[0], snap.position[1], snap.position[2]],
+                direction: [snap.dir[0], snap.dir[1], snap.dir[2]],
+                upVector:  [snap.up[0],  snap.up[1],  snap.up[2]],
+                fieldOfView: 60,
+                platformData: snap,
+            };
+            vp.components = newComponents;
+
+            const t = this.selectedTopic;
+            if (t) this.markDirty(t.guid);
+            ctx.showMessage(this.$tr('Вид заменён'), 'info');
+        },
+
+        async editTopicFields() {
+            const t = this.selectedTopic;
+            if (!t) return;
+            const ctx = this.$ctx();
+
+            const hasSnapshot = !!t.snapshotDataUrl;
+            const snapshotLabel = hasSnapshot
+                ? this.$tr('Заменить изображение')
+                : this.$tr('Добавить изображение');
+
+            const choice = await ctx.showQuickPick(
+                [
+                    { label: this.$tr('Редактировать заголовок'), description: t.title },
+                    { label: this.$tr('Редактировать описание'), description: t.description || '—' },
+                    { label: snapshotLabel },
+                ],
+                { title: this.$tr('Редактирование замечания'), placeHolder: this.$tr('Выберите поле') },
+            );
+
+            const chosen = (choice as any)?.label;
+            if (chosen === this.$tr('Редактировать заголовок')) {
+                const val = await ctx.showInputBox({
+                    title: this.$tr('Заголовок'),
+                    value: t.title,
+                    validateInput: (v: string) => v.trim() ? undefined : this.$tr('Заголовок не может быть пустым'),
+                });
+                if (val?.trim()) { t.title = val.trim(); this.markDirty(t.guid); }
+            } else if (chosen === this.$tr('Редактировать описание')) {
+                const val = await ctx.showInputBox({
+                    title: this.$tr('Описание'),
+                    value: t.description ?? '',
+                    placeHolder: this.$tr('Подробное описание замечания'),
+                });
+                if (val !== undefined) { t.description = val.trim() || undefined; this.markDirty(t.guid); }
+            } else if (chosen === snapshotLabel) {
+                let ws;
+                try {
+                    const opened = await ctx.openDialog({
+                        buttonLabel: this.$tr('Выбрать'),
+                        filters: [{ name: 'Изображения', extensions: ['png', 'jpg', 'jpeg'] }],
+                    });
+                    ws = Array.isArray(opened) ? opened[0] : opened;
+                } catch { return; }
+                if (!ws) return;
+
+                const data = await ws.root.get();
+                const blob = new Blob([data], { type: ws.root.mimeType || 'image/png' });
+                t.snapshotDataUrl = await blobToDataUrl(blob);
+
+                // Ensure the first viewpoint has snapshotFile and write blob to ZIP
+                if (store.zip) {
+                    let vp = t.viewpoints[0];
+                    if (!vp) {
+                        vp = { guid: crypto.randomUUID(), viewpointFile: 'viewpoint.bcfvp', snapshotFile: 'snapshot.png', components: [] };
+                        t.viewpoints.push(vp);
+                    }
+                    if (!vp.snapshotFile) vp.snapshotFile = 'snapshot.png';
+                    store.zip.file(`${t.guid}/${vp.snapshotFile}`, data);
+                }
+
+                this.markDirty(t.guid);
+            }
+        },
+
+        addViewpoint() {
+            const ctx = this.$ctx();
+            const cadview = ctx.cadview;
+            if (!cadview) {
+                ctx.showMessage(this.$tr('Нет активного вида'), 'warning');
+                return;
+            }
+            const t = this.selectedTopic;
+            if (!t) return;
+
+            let stored: any;
+            try {
+                stored = cadview.storeView();
+            } catch {
+                ctx.showMessage(this.$tr('Не удалось захватить вид'), 'error');
+                return;
+            }
+            const snap = JSON.parse(JSON.stringify(stored));
+
+            const guids: string[] = [];
+            const seen = new Set<string>();
+            try {
+                for (const obj of cadview.layer.selectedObjects()) {
+                    const layer = (obj as any)?.layer ?? obj;
+                    if (typeof layer?.typedValueExpanded !== 'function') continue;
+                    try {
+                        const v = layer.typedValueExpanded('ifc.id')?.$value;
+                        if (v) { const s = String(v); if (!seen.has(s)) { seen.add(s); guids.push(s); } }
+                    } catch { /* ignore */ }
+                }
+            } catch { /* ignore */ }
+
+            const vpGuid = crypto.randomUUID();
+            const viewpoint = buildViewpointFromCamera(
+                vpGuid,
+                [snap.position[0], snap.position[1], snap.position[2]],
+                [snap.dir[0], snap.dir[1], snap.dir[2]],
+                [snap.up[0], snap.up[1], snap.up[2]],
+                guids,
+                snap,
+            );
+            t.viewpoints.push(viewpoint);
+            this.markDirty(t.guid);
+            ctx.showMessage(this.$tr('Вид добавлен'), 'info');
         },
 
         captureSelection() {
@@ -1347,6 +1590,9 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 }
 .bcf-vp-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
 .bcf-vp-btn:hover { background: rgba(var(--v-theme-primary), 0.1); }
+.bcf-vp-btn--replace { color: rgba(var(--v-theme-on-surface), 0.5); }
+.bcf-vp-btn--replace:hover { background: rgba(var(--v-theme-on-surface), 0.06); }
+.bcf-vp-row { display: flex; align-items: center; gap: 6px; }
 
 /* ── Comments ── */
 .bcf-comment {
