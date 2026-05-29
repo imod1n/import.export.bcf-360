@@ -2,7 +2,7 @@
   <div class="bcf-panel">
 
     <!-- Toolbar -->
-    <div class="bcf-toolbar">
+    <div v-if="store.zip" class="bcf-toolbar">
       <div class="bcf-filename-wrap">
         <svg class="bcf-filename-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
@@ -13,6 +13,15 @@
         <span v-if="store.isDirty" class="bcf-dirty-dot" :title="$tr('Есть несохранённые изменения')"></span>
       </div>
       <div class="bcf-toolbar-actions">
+        <button v-if="!store.zip" class="bcf-tbtn" @click="createNewFile" :title="$tr('Создать новый файл замечаний')">
+          <svg class="bcf-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="12" y1="18" x2="12" y2="12"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+          </svg>
+          {{ $tr('Новый') }}
+        </button>
         <button class="bcf-tbtn" @click="openFile" :title="$tr('Открыть BCF-файл')">
           <svg class="bcf-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
@@ -34,22 +43,21 @@
           </svg>
           {{ $tr('Создать') }}
         </button>
+        <button class="bcf-icon-btn" @click="closeFile" :title="$tr('Закрыть файл')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
     </div>
 
     <!-- Empty state -->
     <div v-if="!store.zip" class="bcf-empty">
-      <div class="bcf-empty-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-          <line x1="10" y1="9" x2="8" y2="9"/>
-        </svg>
+      <div class="bcf-empty-actions">
+        <button class="bcf-btn-primary" @click="openFile">{{ $tr('Открыть BCF') }}</button>
+        <button class="bcf-btn-primary bcf-btn-primary--green" @click="createNewFile">{{ $tr('Создать новый файл') }}</button>
       </div>
-      <p>{{ $tr('Откройте BCF-файл для просмотра замечаний') }}</p>
-      <button class="bcf-btn-primary" @click="openFile">{{ $tr('Открыть BCF') }}</button>
     </div>
 
     <!-- Main workspace -->
@@ -380,6 +388,7 @@
 
 <script lang="ts">
 import { defineComponent } from 'vue';
+import JSZip from 'jszip';
 import { store } from '../store';
 import { parseBcfFile } from '../bcf/parser';
 import { serializeBcf, createNewTopicFolder, buildViewpointFromCamera } from '../bcf/writer';
@@ -452,8 +461,67 @@ export default defineComponent({
         },
     },
     methods: {
+        async closeFile() {
+            if (store.isDirty) {
+                const ctx = this.$ctx();
+                let wantSave: boolean;
+                try {
+                    await ctx.showMessage(
+                        this.$tr('Есть несохранённые изменения. Сохранить файл перед закрытием?'),
+                        'question',
+                        { resolveTitle: this.$tr('Сохранить'), rejectTitle: this.$tr('Закрыть без сохранения') },
+                    );
+                    wantSave = true;
+                } catch {
+                    wantSave = false;
+                }
+                if (wantSave) {
+                    const saved = await this.saveFile();
+                    if (!saved) return; // пользователь отменил диалог сохранения
+                }
+            }
+            store.zip = null;
+            store.topics = [];
+            store.project = {};
+            store.version = '2.1';
+            store.fileName = null;
+            store.isDirty = false;
+            store.selectedTopicGuid = null;
+        },
+
+        createNewFile() {
+            const zip = new JSZip();
+            zip.file('bcf.version', `<?xml version="1.0" encoding="utf-8"?>\n<Version VersionId="2.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="version.xsd">\n  <DetailedVersion>2.1</DetailedVersion>\n</Version>`);
+            const projectId = crypto.randomUUID();
+            zip.file('project.bcfp', `<?xml version="1.0" encoding="utf-8"?>\n<ProjectExtension xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">\n  <Project ProjectId="${projectId}">\n    <Name></Name>\n  </Project>\n</ProjectExtension>`);
+            store.zip = zip;
+            store.topics = [];
+            store.project = { projectId };
+            store.version = '2.1';
+            store.fileName = 'новый_файл.bcf';
+            store.isDirty = true;
+            store.selectedTopicGuid = null;
+        },
+
         async openFile() {
             const ctx = this.$ctx();
+            if (store.isDirty) {
+                let wantSave: boolean;
+                try {
+                    await ctx.showMessage(
+                        this.$tr('Есть несохранённые изменения. Сохранить файл перед открытием?'),
+                        'question',
+                        { resolveTitle: this.$tr('Сохранить'), rejectTitle: this.$tr('Открыть без сохранения') },
+                    );
+                    wantSave = true;
+                } catch {
+                    wantSave = false;
+                }
+                if (wantSave) {
+                    const saved = await this.saveFile();
+                    if (!saved) return;
+                }
+            }
             let ws;
             try {
                 const opened = await ctx.openDialog({
@@ -483,8 +551,8 @@ export default defineComponent({
             }
         },
 
-        async saveFile() {
-            if (!store.zip || !store.fileName) return;
+        async saveFile(): Promise<boolean> {
+            if (!store.zip || !store.fileName) return false;
             const ctx = this.$ctx();
             let ws;
             try {
@@ -494,9 +562,9 @@ export default defineComponent({
                     folder: false,
                 });
             } catch {
-                return;
+                return false;
             }
-            if (!ws) return;
+            if (!ws) return false;
             const statusMsg = ctx.setStatusBarMessage(this.$tr('Сохранение BCF...'));
             try {
                 const blob = await serializeBcf(store.zip, store.topics, store.project);
@@ -505,8 +573,10 @@ export default defineComponent({
                 await ws.flush();
                 store.isDirty = false;
                 ctx.showMessage(this.$tr('Файл сохранён'), 'info');
+                return true;
             } catch (e) {
                 ctx.showMessage(this.$tr('Ошибка сохранения: {0}', (e as Error).message), 'error');
+                return false;
             } finally {
                 statusMsg.dispose();
             }
@@ -1201,6 +1271,7 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 .bcf-empty-icon { width: 44px; height: 44px; opacity: 0.25; }
 .bcf-empty-icon svg { width: 100%; height: 100%; }
 .bcf-empty p { margin: 0; font-size: 13px; color: rgba(var(--v-theme-on-surface), 0.5); }
+.bcf-empty-actions { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 
 /* ── Workspace ── */
 .bcf-workspace {
@@ -1675,6 +1746,7 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
 }
 .bcf-btn-primary:hover:not(:disabled) { opacity: 0.85; }
 .bcf-btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+.bcf-btn-primary--green { background: #2e7d32; color: #fff; }
 
 .bcf-outline-btn {
   display: inline-flex;
