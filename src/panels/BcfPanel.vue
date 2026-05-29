@@ -253,7 +253,7 @@
           :src="selectedTopic.snapshotDataUrl"
           class="bcf-snapshot bcf-snapshot--clickable"
           alt="snapshot"
-          :title="$tr('Открыть в новой вкладке')"
+          :title="$tr('Открыть снимок')"
           @click="onThumbClick(selectedTopic)"
         />
 
@@ -376,8 +376,9 @@
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineComponent, createApp } from 'vue';
 import JSZip from 'jszip';
+import SnapshotEditor from '../components/SnapshotEditor.vue';
 import { toBlob as domToBlob } from 'html-to-image';
 import { store } from '../store';
 import { parseBcfFile } from '../bcf/parser';
@@ -940,16 +941,18 @@ export default defineComponent({
             let newComponents = vp.components;
 
             if (newGuids.length === 0) {
-                // No selection — ask whether to clear or keep
-                const choice = await ctx.showQuickPick(
-                    [
-                        { label: this.$tr('Оставить прежний список'), description: this.$tr('Элементов: {0}', vp.components.length) },
-                        { label: this.$tr('Обнулить список элементов') },
-                    ],
-                    { title: this.$tr('Выделенные IFC-элементы'), placeHolder: this.$tr('Нет выделения в модели') },
-                );
-                if ((choice as any)?.label === this.$tr('Обнулить список элементов')) {
-                    newComponents = [];
+                // No selection — ask whether to clear or keep (only if there's something to keep)
+                if (vp.components.length > 0) {
+                    const choice = await ctx.showQuickPick(
+                        [
+                            { label: this.$tr('Оставить прежний список'), description: this.$tr('Элементов: {0}', vp.components.length) },
+                            { label: this.$tr('Обнулить список элементов') },
+                        ],
+                        { title: this.$tr('Выделенные IFC-элементы'), placeHolder: this.$tr('Нет выделения в модели') },
+                    );
+                    if ((choice as any)?.label === this.$tr('Обнулить список элементов')) {
+                        newComponents = [];
+                    }
                 }
             } else {
                 // Selection is identical to existing components — nothing to ask
@@ -1166,16 +1169,36 @@ export default defineComponent({
                 existing.close();
                 delete this.snapshotWindows[topic.guid];
             } else {
-                this.openSnapshotWindow(topic.guid, topic.snapshotDataUrl, topic.title);
+                const isAuthor = !!store.username && topic.creationAuthor === store.username;
+                this.openSnapshotWindow(topic.guid, topic.snapshotDataUrl, topic.title, !isAuthor);
             }
         },
 
-        openSnapshotWindow(guid: string, dataUrl: string, title: string) {
+        openSnapshotWindow(guid: string, dataUrl: string, title: string, readOnly = false) {
+            const theme = this.$el?.closest('[class*="v-theme--"]')
+                ?.className.match(/v-theme--(\w+)/)?.[1] ?? 'light';
             const ctx = this.$ctx();
             const app = ctx.app;
             if (!app) return;
 
             const tag = `bcf-snap-${guid}`;
+            let vueApp: ReturnType<typeof createApp> | null = null;
+
+            const onSave = async (blob: Blob) => {
+                const topic = store.topics.find(t => t.guid === guid);
+                if (!topic || !store.zip) return;
+                topic.snapshotDataUrl = await blobToDataUrl(blob);
+                let vp = topic.viewpoints[0];
+                if (!vp) {
+                    vp = { guid: crypto.randomUUID(), viewpointFile: 'viewpoint.bcfv', snapshotFile: 'snapshot.png', components: [] };
+                    topic.viewpoints.push(vp);
+                }
+                if (!vp.snapshotFile) vp.snapshotFile = 'snapshot.png';
+                store.zip.file(`${guid}/${vp.snapshotFile}`, blob);
+                store.isDirty = true;
+                ctx.showMessage(this.$tr('Снимок обновлён'), 'info');
+            };
+
             const win = (app as any).addDefinedWindow({
                 tag,
                 id: tag,
@@ -1183,13 +1206,27 @@ export default defineComponent({
                 icon: 'image',
                 actions: [],
                 mount: (el: HTMLElement) => {
-                    el.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;background:#111;overflow:auto;padding:8px;box-sizing:border-box;';
-                    const img = document.createElement('img');
-                    img.src = dataUrl;
-                    img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:4px;';
-                    el.appendChild(img);
+                    el.style.cssText = 'height:100%;overflow:hidden;';
+                    const onCancel = () => win.close();
+                    const showConfirm = async (): Promise<boolean> => {
+                        try {
+                            await ctx.showMessage(
+                                this.$tr('Есть несохранённые изменения в снимке. Закрыть без сохранения?'),
+                                'question',
+                                { resolveTitle: this.$tr('Закрыть'), rejectTitle: this.$tr('Отмена') },
+                            );
+                            return true;
+                        } catch {
+                            return false;
+                        }
+                    };
+                    vueApp = createApp(SnapshotEditor, { dataUrl, guid, readOnly, theme, onSave, onCancel, showConfirm });
+                    ctx.mountVue(el, vueApp);
                 },
-                unmount: () => {},
+                unmount: () => {
+                    vueApp?.unmount();
+                    vueApp = null;
+                },
                 close: async () => { delete this.snapshotWindows[guid]; },
             });
             this.snapshotWindows[guid] = win;
