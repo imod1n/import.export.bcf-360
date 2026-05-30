@@ -8,6 +8,7 @@
       v-model:lineWidth="activeLineWidth"
       :canUndo="history.length > 0"
       :canRedo="redoStack.length > 0"
+      :hideActions="props.hideActions"
       @undo="undo"
       @redo="redo"
       @clear="clear"
@@ -77,6 +78,8 @@ const props = defineProps<{
   onSave?: (blob: Blob) => Promise<void>;
   onCancel?: () => void;
   showConfirm?: () => Promise<boolean>;
+  hideActions?: boolean;
+  registerSave?: (fn: () => Promise<void>) => void;
 }>();
 
 const { readOnly } = props;
@@ -355,11 +358,17 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 async function save() {
+  if (history.length === 0) {
+    props.onCancel?.();
+    return;
+  }
   const blob = await getCompositeBlob();
   if (!blob) return;
   await props.onSave?.(blob);
   props.onCancel?.();
 }
+
+props.registerSave?.(save);
 
 async function handleCancel() {
   if (history.length > 0 && props.showConfirm) {

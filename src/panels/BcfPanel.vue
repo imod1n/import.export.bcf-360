@@ -1227,8 +1227,12 @@ export default defineComponent({
             const theme = this.$el?.closest('[class*="v-theme--"]')
                 ?.className.match(/v-theme--(\w+)/)?.[1] ?? 'light';
             const ctx = this.$ctx();
-            const app = ctx.app;
-            if (!app) return;
+            const app = ctx.app ?? ctx.manager.activeApp ?? (ctx.manager.apps.length ? ctx.manager.apps[0] : null);
+
+            if (!app) {
+                this.openSnapshotDialog(guid, dataUrl, title, readOnly, theme);
+                return;
+            }
 
             const tag = `bcf-snap-${guid}`;
             let vueApp: ReturnType<typeof createApp> | null = null;
@@ -1280,6 +1284,51 @@ export default defineComponent({
             });
             this.snapshotWindows[guid] = win;
             (ctx.manager as any).activeWindow = win;
+        },
+
+        async openSnapshotDialog(guid: string, dataUrl: string, title: string, readOnly = false, theme = 'light') {
+            const ctx = this.$ctx();
+            let vueApp: ReturnType<typeof createApp> | null = null;
+            let doSave: (() => Promise<void>) | null = null;
+
+            const onSave = async (blob: Blob) => {
+                const topic = store.topics.find(t => t.guid === guid);
+                if (!topic || !store.zip) return;
+                topic.snapshotDataUrl = await blobToDataUrl(blob);
+                let vp = topic.viewpoints[0];
+                if (!vp) {
+                    vp = { guid: crypto.randomUUID(), viewpointFile: 'viewpoint.bcfv', snapshotFile: 'snapshot.png', components: [] };
+                    topic.viewpoints.push(vp);
+                }
+                if (!vp.snapshotFile) vp.snapshotFile = 'snapshot.png';
+                store.zip.file(`${guid}/${vp.snapshotFile}`, blob);
+                store.isDirty = true;
+                ctx.showMessage(this.$tr('Снимок обновлён'), 'info');
+            };
+
+            try {
+                await (ctx as any).showDefinedDialog({
+                    title: title.length > 20 ? title.slice(0, 20).trimEnd() + '…' : title,
+                    resolveTitle: this.$tr('Сохранить'),
+                    mount: (el: HTMLElement) => {
+                        el.style.cssText = 'width:820px;height:600px;overflow:hidden;';
+                        vueApp = createApp(SnapshotEditor, {
+                            dataUrl, guid, readOnly, theme, onSave,
+                            onCancel: () => {},
+                            showConfirm: async () => true,
+                            hideActions: true,
+                            registerSave: (fn: () => Promise<void>) => { doSave = fn; },
+                        });
+                        ctx.mountVue(el, vueApp);
+                    },
+                });
+                // "Сохранить" нажато
+                if (doSave) await doSave();
+            } catch {
+                // "Отмена" нажато → отбросить изменения
+            } finally {
+                vueApp?.unmount();
+            }
         },
 
         async createTopic() {
