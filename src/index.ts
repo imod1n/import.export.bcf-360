@@ -14,7 +14,7 @@ export default {
         const app = createApp(BcfPanel);
         app.config.globalProperties.$ctx = () => ctx;
         app.config.globalProperties.$tr = (msg: string, ...args: any[]) => ctx.tr(msg, ...args);
-        app.mount(el);
+        ctx.mountVue(el, app);
     },
 
     showBcfPanelCmd: (ctx: Context): void => {

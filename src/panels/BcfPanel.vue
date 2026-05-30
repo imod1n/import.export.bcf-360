@@ -131,11 +131,11 @@
       </div>
 
       <!-- Right: create form -->
-      <div v-if="createFormVisible" class="bcf-detail bcf-create">
+      <div v-if="store.createFormVisible" class="bcf-detail bcf-create">
 
         <div class="bcf-detail-head bcf-detail-head--flat">
           <span class="bcf-detail-head-title">{{ $tr('Новое замечание') }}</span>
-          <button class="bcf-icon-btn" @click="createFormVisible = false" :title="$tr('Закрыть')">
+          <button class="bcf-icon-btn" @click="store.createFormVisible = false" :title="$tr('Закрыть')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
               <line x1="18" y1="6" x2="6" y2="18"/>
               <line x1="6" y1="6" x2="18" y2="18"/>
@@ -149,11 +149,11 @@
           <div class="bcf-field-group">
             <div class="bcf-field">
               <label class="bcf-label">{{ $tr('Заголовок') }} <span class="bcf-required">*</span></label>
-              <input v-model="newTopic.title" class="bcf-input" type="text" autofocus :placeholder="$tr('Краткое описание замечания')" />
+              <input v-model="store.newTopic.title" class="bcf-input" type="text" autofocus :placeholder="$tr('Краткое описание замечания')" />
             </div>
             <div class="bcf-field">
               <label class="bcf-label">{{ $tr('Описание') }}</label>
-              <textarea v-model="newTopic.description" class="bcf-textarea" rows="3" :placeholder="$tr('Подробное описание...')"></textarea>
+              <textarea v-model="store.newTopic.description" class="bcf-textarea" rows="3" :placeholder="$tr('Подробное описание...')"></textarea>
             </div>
           </div>
 
@@ -163,7 +163,7 @@
             <div class="bcf-field bcf-field--row">
               <label class="bcf-label">{{ $tr('Статус') }}</label>
               <div class="bcf-select-wrap">
-                <select v-model="newTopic.status" class="bcf-select">
+                <select v-model="store.newTopic.status" class="bcf-select">
                   <option v-for="s in statuses" :key="s" :value="s">{{ statusLabel(s) }}</option>
                 </select>
               </div>
@@ -171,7 +171,7 @@
             <div class="bcf-field bcf-field--row">
               <label class="bcf-label">{{ $tr('Тип') }}</label>
               <div class="bcf-select-wrap">
-                <select v-model="newTopic.topicType" class="bcf-select">
+                <select v-model="store.newTopic.topicType" class="bcf-select">
                   <option value="">—</option>
                   <option v-for="t in topicTypes" :key="t" :value="t">{{ topicTypeLabel(t) }}</option>
                 </select>
@@ -180,7 +180,7 @@
             <div class="bcf-field bcf-field--row">
               <label class="bcf-label">{{ $tr('Приоритет') }}</label>
               <div class="bcf-select-wrap">
-                <select v-model="newTopic.priority" class="bcf-select">
+                <select v-model="store.newTopic.priority" class="bcf-select">
                   <option value="">—</option>
                   <option v-for="p in priorities" :key="p" :value="p">{{ p }}</option>
                 </select>
@@ -188,7 +188,7 @@
             </div>
             <div class="bcf-field bcf-field--row">
               <label class="bcf-label">{{ $tr('Ответственный') }}</label>
-              <input v-model="newTopic.assignedTo" class="bcf-input" type="text" />
+              <input v-model="store.newTopic.assignedTo" class="bcf-input" type="text" />
             </div>
           </div>
 
@@ -197,21 +197,12 @@
             <div class="bcf-field-group-label">{{ $tr('Данные вида') }}</div>
             <div class="bcf-field bcf-field--row">
               <label class="bcf-label">{{ $tr('Камера') }}</label>
-              <button class="bcf-outline-btn" :class="{ 'bcf-outline-btn--captured': !!capturedCamera }" @click="captureViewpoint" :title="$tr('Захватить текущую позицию камеры и снимок вида')">
+              <button class="bcf-outline-btn" :class="{ 'bcf-outline-btn--captured': !!store.capturedCamera }" @click="captureViewpoint" :title="$tr('Захватить текущую позицию камеры и снимок вида')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
                 </svg>
-                <span>{{ capturedCamera ? $tr('Захвачено') + ' ✓' : $tr('Захватить вид') }}</span>
-              </button>
-            </div>
-            <div class="bcf-field bcf-field--row">
-              <label class="bcf-label">{{ $tr('IFC-объекты') }}</label>
-              <button class="bcf-outline-btn" :class="{ 'bcf-outline-btn--captured': capturedGuids.length > 0 }" @click="captureSelection" :title="$tr('Добавить выделенные IFC-объекты')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
-                </svg>
-                <span>{{ capturedGuids.length > 0 ? $tr('{0} объектов', capturedGuids.length) : $tr('Из выделения') }}</span>
+                <span>{{ store.capturedCamera ? $tr('Захвачено') + ' ✓' : $tr('Захватить вид') }}</span>
               </button>
             </div>
           </div>
@@ -219,8 +210,8 @@
         </div>
 
         <div class="bcf-create-foot">
-          <button class="bcf-outline-btn" @click="createFormVisible = false">{{ $tr('Отмена') }}</button>
-          <button class="bcf-btn-primary" :disabled="!newTopic.title.trim()" @click="createTopic">
+          <button class="bcf-outline-btn" @click="store.createFormVisible = false">{{ $tr('Отмена') }}</button>
+          <button class="bcf-btn-primary" :disabled="!store.newTopic.title.trim()" @click="createTopic">
             {{ $tr('Создать') }}
           </button>
         </div>
@@ -402,7 +393,7 @@ import { store } from '../store';
 import { parseBcfFile } from '../bcf/parser';
 import { serializeBcf, createNewTopicFolder, buildViewpointFromCamera } from '../bcf/writer';
 import { BCF_STATUSES, BCF_PRIORITIES, BCF_TOPIC_TYPES, BCF_TOPIC_TYPE_LABELS } from '../bcf/types';
-import type { BcfViewpoint, BcfCamera } from '../bcf/types';
+import type { BcfViewpoint } from '../bcf/types';
 
 export default defineComponent({
     name: 'BcfPanel',
@@ -421,19 +412,6 @@ export default defineComponent({
             editTopicType: '',
             newComment: '',
 
-            createFormVisible: false,
-            newTopic: {
-                title: '',
-                description: '',
-                status: 'Open',
-                priority: '',
-                assignedTo: '',
-                topicType: '',
-            },
-            newSnapshotBlob: null as Blob | null,
-            newSnapshotName: null as string | null,
-            capturedCamera: null as BcfCamera | null,
-            capturedGuids: [] as string[],
             snapshotWindows: {} as Record<string, any>,
         };
     },
@@ -808,19 +786,19 @@ export default defineComponent({
         },
 
         showCreateForm() {
-            this.newTopic = { title: '', description: '', status: 'Open', priority: '', assignedTo: '', topicType: '' };
-            this.newSnapshotBlob = null;
-            this.newSnapshotName = null;
-            this.capturedCamera = null;
-            this.capturedGuids = [];
-            this.createFormVisible = true;
+            store.newTopic = { title: '', description: '', status: 'Open', priority: '', assignedTo: '', topicType: '' };
+            store.newSnapshotBlob = null;
+            store.newSnapshotName = null;
+            store.capturedCamera = null;
+            store.capturedGuids = [];
+            store.createFormVisible = true;
         },
 
         async captureViewSnapshot() {
             const blob = await this.tryCanvasCapture();
             if (blob) {
-                this.newSnapshotBlob = blob;
-                this.newSnapshotName = 'snapshot.png';
+                store.newSnapshotBlob = blob;
+                store.newSnapshotName = 'snapshot.png';
                 return;
             }
             await this.pickSnapshot();
@@ -903,8 +881,8 @@ export default defineComponent({
             }
             if (!ws) return;
             const data = await ws.root.get();
-            this.newSnapshotBlob = new Blob([data], { type: ws.root.mimeType || 'image/png' });
-            this.newSnapshotName = ws.root.title;
+            store.newSnapshotBlob = new Blob([data], { type: ws.root.mimeType || 'image/png' });
+            store.newSnapshotName = ws.root.title;
         },
 
         async captureViewpoint() {
@@ -930,7 +908,7 @@ export default defineComponent({
             const dir: [number, number, number] = [snap.dir[0], snap.dir[1], snap.dir[2]];
             const up:  [number, number, number] = [snap.up[0],  snap.up[1],  snap.up[2]];
 
-            this.capturedCamera = {
+            store.capturedCamera = {
                 viewPoint: pos,
                 direction: dir,
                 upVector:  up,
@@ -940,9 +918,25 @@ export default defineComponent({
 
             const blob = await this.tryCanvasCapture();
             if (blob) {
-                this.newSnapshotBlob = blob;
-                this.newSnapshotName = 'snapshot.png';
+                store.newSnapshotBlob = blob;
+                store.newSnapshotName = 'snapshot.png';
             }
+
+            // Automatically capture current IFC selection (silent — empty list is valid)
+            const guids: string[] = [];
+            const seen = new Set<string>();
+            try {
+                for (const obj of cadview.layer.selectedObjects()) {
+                    const layer = (obj as any)?.layer ?? obj;
+                    if (!layer || typeof layer.typedValueExpanded !== 'function') continue;
+                    try {
+                        const v = layer.typedValueExpanded('ifc.id')?.$value;
+                        const id = v ? String(v) : undefined;
+                        if (id && !seen.has(id)) { seen.add(id); guids.push(id); }
+                    } catch { /* ignore */ }
+                }
+            } catch { /* ignore */ }
+            store.capturedGuids = guids;
 
             ctx.showMessage(this.$tr('Вид захвачен'), 'info');
         },
@@ -1207,7 +1201,7 @@ export default defineComponent({
                 }
             } catch { /* ignore */ }
 
-            this.capturedGuids = guids;
+            store.capturedGuids = guids;
             ctx.showMessage(this.$tr('Захвачено IFC-объектов: {0}', guids.length), 'info');
         },
 
@@ -1332,7 +1326,7 @@ export default defineComponent({
         },
 
         async createTopic() {
-            if (!this.newTopic.title.trim() || !store.zip) return;
+            if (!store.newTopic.title.trim() || !store.zip) return;
 
             const ctx = this.$ctx();
             const guid = crypto.randomUUID();
@@ -1342,37 +1336,37 @@ export default defineComponent({
             const vpGuid = crypto.randomUUID();
             const viewpoint = buildViewpointFromCamera(
                 vpGuid,
-                this.capturedCamera?.viewPoint ?? [0, 0, 0],
-                this.capturedCamera?.direction ?? [0, 0, -1],
-                this.capturedCamera?.upVector ?? [0, 1, 0],
-                this.capturedGuids,
-                this.capturedCamera?.platformData,
+                store.capturedCamera?.viewPoint ?? [0, 0, 0],
+                store.capturedCamera?.direction ?? [0, 0, -1],
+                store.capturedCamera?.upVector ?? [0, 1, 0],
+                store.capturedGuids,
+                store.capturedCamera?.platformData,
             );
-            if (!this.capturedCamera) viewpoint.camera = undefined;
-            if (this.newSnapshotBlob) viewpoint.snapshotFile = 'snapshot.png';
+            if (!store.capturedCamera) viewpoint.camera = undefined;
+            if (store.newSnapshotBlob) viewpoint.snapshotFile = 'snapshot.png';
 
             const topic = {
                 guid,
-                title: this.newTopic.title.trim(),
-                description: this.newTopic.description.trim() || undefined,
-                status: this.newTopic.status,
-                topicType: this.newTopic.topicType || undefined,
-                priority: this.newTopic.priority || undefined,
-                assignedTo: this.newTopic.assignedTo.trim() || undefined,
+                title: store.newTopic.title.trim(),
+                description: store.newTopic.description.trim() || undefined,
+                status: store.newTopic.status,
+                topicType: store.newTopic.topicType || undefined,
+                priority: store.newTopic.priority || undefined,
+                assignedTo: store.newTopic.assignedTo.trim() || undefined,
                 creationDate: now,
                 creationAuthor: author,
                 comments: [],
                 viewpoints: [viewpoint],
-                snapshotDataUrl: this.newSnapshotBlob
-                    ? await blobToDataUrl(this.newSnapshotBlob)
+                snapshotDataUrl: store.newSnapshotBlob
+                    ? await blobToDataUrl(store.newSnapshotBlob)
                     : undefined,
             };
 
-            createNewTopicFolder(store.zip, topic, this.newSnapshotBlob ?? undefined);
+            createNewTopicFolder(store.zip, topic, store.newSnapshotBlob ?? undefined);
             store.topics.push(topic);
             store.isDirty = true;
             store.selectedTopicGuid = guid;
-            this.createFormVisible = false;
+            store.createFormVisible = false;
             ctx.showMessage(this.$tr('Замечание создано'), 'info');
         },
     },

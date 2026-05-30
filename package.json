@@ -84,7 +84,7 @@
     "pages": [
       {
         "tag": "bcf_tools",
-        "label": "BCF",
+        "label": "Формат BCF",
         "groups": [
           {
             "tag": "bcf_group",
@@ -92,8 +92,18 @@
             "items": [
               {
                 "tag": "b",
+                "action": "bcf_new"
+              },
+              {
+                "tag": "b",
+                "action": "bcf_open_file"
+              },
+              { "tag": "s" },
+              {
+                "tag": "b",
                 "action": "bcf_username"
               },
+              { "tag": "s" },
               {
                 "tag": "b",
                 "action": "bcf_open"
