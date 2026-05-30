@@ -1,5 +1,4 @@
 import { reactive } from 'vue';
-import JSZip from 'jszip';
 import type { BcfTopic, BcfProject, BcfCamera } from './bcf/types';
 
 export interface NewTopicForm {
@@ -11,45 +10,37 @@ export interface NewTopicForm {
     topicType: string;
 }
 
-export interface StoreState {
-    topics: BcfTopic[];
-    selectedTopicGuid: string | null;
-    project: BcfProject;
-    version: string;
-    fileName: string | null;
-    zip: JSZip | null;
-    isDirty: boolean;
-    username: string;
-    pendingAction: 'open' | 'create' | null;
-    createFormVisible: boolean;
-    newTopic: NewTopicForm;
-    newSnapshotBlob: Blob | null;
-    newSnapshotName: string | null;
-    capturedCamera: BcfCamera | null;
-    capturedGuids: string[];
-    capturedSmdxUuids: string[];
-}
-
-export const store = reactive<StoreState>({
-    topics: [],
-    selectedTopicGuid: null,
-    project: {},
-    version: '2.1',
-    fileName: null,
-    zip: null,
+export const fileStore = reactive({
+    fileName: null as string | null,
     isDirty: false,
-    username: '',
-    pendingAction: null,
-    createFormVisible: false,
-    newTopic: { title: '', description: '', status: 'Open', priority: '', assignedTo: '', topicType: '' },
-    newSnapshotBlob: null,
-    newSnapshotName: null,
-    capturedCamera: null,
-    capturedGuids: [],
-    capturedSmdxUuids: [],
+    version: '2.1',
+});
+
+export const topicStore = reactive({
+    topics: [] as BcfTopic[],
+    selectedTopicGuid: null as string | null,
+    project: {} as BcfProject,
 });
 
 export function getSelectedTopic(): BcfTopic | undefined {
-    if (!store.selectedTopicGuid) return undefined;
-    return store.topics.find(t => t.guid === store.selectedTopicGuid);
+    if (!topicStore.selectedTopicGuid) return undefined;
+    return topicStore.topics.find(t => t.guid === topicStore.selectedTopicGuid);
 }
+
+export const uiStore = reactive({
+    username: '',
+    createFormVisible: false,
+    newTopic: {
+        title: '',
+        description: '',
+        status: 'Open',
+        priority: '',
+        assignedTo: '',
+        topicType: '',
+    } as NewTopicForm,
+    newSnapshotBlob: null as Blob | null,
+    newSnapshotName: null as string | null,
+    capturedCamera: null as BcfCamera | null,
+    capturedGuids: [] as string[],
+    capturedSmdxUuids: [] as string[],
+});

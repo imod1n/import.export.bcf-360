@@ -1,7 +1,15 @@
 import type { Context } from 'albatros';
 import { createApp } from 'vue';
 import BcfPanel from './panels/BcfPanel.vue';
-import { store } from './store';
+import { uiStore } from './store';
+import * as bcfFileService from './services/bcfFileService';
+
+function showPanel(ctx: Context): void {
+    const panelBar = (ctx as any).manager?.panelBar;
+    if (!panelBar) return;
+    const target = panelBar.views?.find((v: any) => v.id?.includes('bcfContainer'));
+    if (target) { panelBar.visible = true; panelBar.activeView = target; }
+}
 
 export default {
     mountBcfPanel: async (ctx: Context): Promise<void> => {
@@ -9,7 +17,7 @@ export default {
         if (!el) return;
 
         const saved = await ctx.extension.settings('bcf_prefs').get<string>('username');
-        if (saved) store.username = saved;
+        if (saved) uiStore.username = saved;
 
         const app = createApp(BcfPanel);
         app.config.globalProperties.$ctx = () => ctx;
@@ -32,25 +40,17 @@ export default {
     },
 
     bcfNewCmd: (ctx: Context): void => {
-        store.pendingAction = 'create';
-        const panelBar = (ctx as any).manager?.panelBar;
-        if (panelBar) {
-            const target = panelBar.views?.find((v: any) => v.id?.includes('bcfContainer'));
-            if (target) { panelBar.visible = true; panelBar.activeView = target; }
-        }
+        bcfFileService.createNew();
+        showPanel(ctx);
     },
 
-    bcfOpenFileCmd: (ctx: Context): void => {
-        store.pendingAction = 'open';
-        const panelBar = (ctx as any).manager?.panelBar;
-        if (panelBar) {
-            const target = panelBar.views?.find((v: any) => v.id?.includes('bcfContainer'));
-            if (target) { panelBar.visible = true; panelBar.activeView = target; }
-        }
+    bcfOpenFileCmd: async (ctx: Context): Promise<void> => {
+        showPanel(ctx);
+        await bcfFileService.open(ctx);
     },
 
     setUsernameCmd: async (ctx: Context): Promise<void> => {
-        const current = store.username || (ctx.manager as any)?.username || 'Unknown';
+        const current = uiStore.username || (ctx.manager as any)?.username || 'Unknown';
 
         const choice = await ctx.showQuickPick(
             [
@@ -65,14 +65,14 @@ export default {
         const newName = await ctx.showInputBox({
             title: 'Имя пользователя',
             prompt: 'Введите имя, которое будет указано автором замечаний и комментариев',
-            value: store.username || '',
+            value: uiStore.username || '',
             placeHolder: 'Например: Иван Петров',
             validateInput: (v: string) => v.trim() ? undefined : 'Имя не может быть пустым',
         });
 
         if (newName?.trim()) {
-            store.username = newName.trim();
-            await ctx.extension.settings('bcf_prefs').set('username', store.username);
+            uiStore.username = newName.trim();
+            await ctx.extension.settings('bcf_prefs').set('username', uiStore.username);
         }
     },
 } satisfies Record<string, (ctx: Context) => unknown>;
