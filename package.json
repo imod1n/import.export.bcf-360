@@ -106,9 +106,9 @@
     "statusbar": {},
     "viewsContainers": {
       "bcfContainer": {
-        "label": "BCF",
+        "label": "Формат BCF",
         "icon": "assignment",
-        "order": 50,
+        "order": 100,
         "container": "bottom"
       }
     },

@@ -56,3 +56,10 @@ export interface BcfProject {
 
 export const BCF_STATUSES = ['Open', 'In Progress', 'Resolved', 'Closed', 'ReOpened'] as const;
 export const BCF_PRIORITIES = ['', 'Critical', 'Major', 'Normal', 'Minor'] as const;
+export const BCF_TOPIC_TYPES = ['Comment', 'Issue', 'Request', 'Solution'] as const;
+export const BCF_TOPIC_TYPE_LABELS: Record<string, string> = {
+    Comment: 'Комментарий',
+    Issue: 'Задача',
+    Request: 'Требование',
+    Solution: 'Решение',
+};

@@ -169,6 +169,15 @@
               </div>
             </div>
             <div class="bcf-field bcf-field--row">
+              <label class="bcf-label">{{ $tr('Тип') }}</label>
+              <div class="bcf-select-wrap">
+                <select v-model="newTopic.topicType" class="bcf-select">
+                  <option value="">—</option>
+                  <option v-for="t in topicTypes" :key="t" :value="t">{{ topicTypeLabel(t) }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="bcf-field bcf-field--row">
               <label class="bcf-label">{{ $tr('Приоритет') }}</label>
               <div class="bcf-select-wrap">
                 <select v-model="newTopic.priority" class="bcf-select">
@@ -268,6 +277,15 @@
               <select v-model="editStatus" @change="updateStatus" class="bcf-select">
                 <option v-if="!statuses.includes(editStatus as any)" :value="editStatus">{{ statusLabel(editStatus) }}</option>
                 <option v-for="s in statuses" :key="s" :value="s">{{ statusLabel(s) }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="bcf-prop-row">
+            <label>{{ $tr('Тип') }}</label>
+            <div class="bcf-select-wrap">
+              <select v-model="editTopicType" @change="updateTopicType" class="bcf-select" :disabled="!isOwner">
+                <option value="">—</option>
+                <option v-for="t in topicTypes" :key="t" :value="t">{{ topicTypeLabel(t) }}</option>
               </select>
             </div>
           </div>
@@ -383,7 +401,7 @@ import { toBlob as domToBlob } from 'html-to-image';
 import { store } from '../store';
 import { parseBcfFile } from '../bcf/parser';
 import { serializeBcf, createNewTopicFolder, buildViewpointFromCamera } from '../bcf/writer';
-import { BCF_STATUSES, BCF_PRIORITIES } from '../bcf/types';
+import { BCF_STATUSES, BCF_PRIORITIES, BCF_TOPIC_TYPES, BCF_TOPIC_TYPE_LABELS } from '../bcf/types';
 import type { BcfViewpoint, BcfCamera } from '../bcf/types';
 
 export default defineComponent({
@@ -393,12 +411,14 @@ export default defineComponent({
             store,
             statuses: [...BCF_STATUSES],
             priorities: BCF_PRIORITIES.filter(p => p !== '') as string[],
+            topicTypes: [...BCF_TOPIC_TYPES] as string[],
 
             statusFilter: '' as string,
 
             editStatus: '',
             editPriority: '',
             editAssignedTo: '',
+            editTopicType: '',
             newComment: '',
 
             createFormVisible: false,
@@ -408,6 +428,7 @@ export default defineComponent({
                 status: 'Open',
                 priority: '',
                 assignedTo: '',
+                topicType: '',
             },
             newSnapshotBlob: null as Blob | null,
             newSnapshotName: null as string | null,
@@ -456,6 +477,7 @@ export default defineComponent({
             this.editStatus = topic?.status ?? 'Open';
             this.editPriority = topic?.priority ?? '';
             this.editAssignedTo = topic?.assignedTo ?? '';
+            this.editTopicType = topic?.topicType ?? '';
             this.newComment = '';
         },
         async 'store.pendingAction'(action: string | null) {
@@ -467,7 +489,8 @@ export default defineComponent({
     },
     methods: {
         async closeFile() {
-            if (store.isDirty) {
+            const isEmptyNew = store.isDirty && store.topics.length === 0 && store.fileName === 'новый_файл.bcf';
+            if (store.isDirty && !isEmptyNew) {
                 const ctx = this.$ctx();
                 let wantSave: boolean;
                 try {
@@ -510,7 +533,8 @@ export default defineComponent({
 
         async openFile() {
             const ctx = this.$ctx();
-            if (store.isDirty) {
+            const isEmptyNew = store.isDirty && store.topics.length === 0 && store.fileName === 'новый_файл.bcf';
+            if (store.isDirty && !isEmptyNew) {
                 let wantSave: boolean;
                 try {
                     await ctx.showMessage(
@@ -627,6 +651,10 @@ export default defineComponent({
             return map[status] ?? status;
         },
 
+        topicTypeLabel(type: string): string {
+            return BCF_TOPIC_TYPE_LABELS[type] ?? type;
+        },
+
         formatDate(iso: string): string {
             try {
                 return new Date(iso).toLocaleDateString('ru-RU');
@@ -664,6 +692,13 @@ export default defineComponent({
             const t = this.selectedTopic;
             if (!t) return;
             t.priority = this.editPriority || undefined;
+            this.markDirty(t.guid);
+        },
+
+        updateTopicType() {
+            const t = this.selectedTopic;
+            if (!t) return;
+            t.topicType = this.editTopicType || undefined;
             this.markDirty(t.guid);
         },
 
@@ -773,7 +808,7 @@ export default defineComponent({
         },
 
         showCreateForm() {
-            this.newTopic = { title: '', description: '', status: 'Open', priority: '', assignedTo: '' };
+            this.newTopic = { title: '', description: '', status: 'Open', priority: '', assignedTo: '', topicType: '' };
             this.newSnapshotBlob = null;
             this.newSnapshotName = null;
             this.capturedCamera = null;
@@ -1272,6 +1307,7 @@ export default defineComponent({
                 title: this.newTopic.title.trim(),
                 description: this.newTopic.description.trim() || undefined,
                 status: this.newTopic.status,
+                topicType: this.newTopic.topicType || undefined,
                 priority: this.newTopic.priority || undefined,
                 assignedTo: this.newTopic.assignedTo.trim() || undefined,
                 creationDate: now,
