@@ -771,6 +771,22 @@ export default defineComponent({
                 }
             }
 
+            const uuidSet = new Set((vp.smdxComponents ?? []).map(c => c.uuid));
+            if (uuidSet.size > 0) {
+                let matchCount = 0;
+                try {
+                    cadLayer.selectObjects((obj: any) => {
+                        const layer = obj?.layer ?? obj;
+                        const uuid = (layer as any)?.UUID;
+                        if (uuid && uuidSet.has(String(uuid))) { matchCount++; return true; }
+                        return false;
+                    }, true);
+                } catch { /* ignore */ }
+                if (matchCount === 0) {
+                    ctx.showMessage(this.$tr('SMDX-элементы не найдены в текущей модели'), 'warning');
+                }
+            }
+
             if (vp.camera) {
                 if (vp.camera.platformData) {
                     const raw = JSON.parse(JSON.stringify(vp.camera.platformData));
@@ -791,6 +807,7 @@ export default defineComponent({
             store.newSnapshotName = null;
             store.capturedCamera = null;
             store.capturedGuids = [];
+            store.capturedSmdxUuids = [];
             store.createFormVisible = true;
         },
 
@@ -922,21 +939,33 @@ export default defineComponent({
                 store.newSnapshotName = 'snapshot.png';
             }
 
-            // Automatically capture current IFC selection (silent — empty list is valid)
+            // Automatically capture current selection (IFC or SMDX, silent — empty list is valid)
             const guids: string[] = [];
+            const smdxUuids: string[] = [];
             const seen = new Set<string>();
             try {
                 for (const obj of cadview.layer.selectedObjects()) {
                     const layer = (obj as any)?.layer ?? obj;
-                    if (!layer || typeof layer.typedValueExpanded !== 'function') continue;
-                    try {
-                        const v = layer.typedValueExpanded('ifc.id')?.$value;
-                        const id = v ? String(v) : undefined;
-                        if (id && !seen.has(id)) { seen.add(id); guids.push(id); }
-                    } catch { /* ignore */ }
+                    let ifcId: string | undefined;
+                    if (typeof layer?.typedValueExpanded === 'function') {
+                        try {
+                            const v = layer.typedValueExpanded('ifc.id')?.$value;
+                            if (v) ifcId = String(v);
+                        } catch { /* ignore */ }
+                    }
+                    if (ifcId) {
+                        if (!seen.has(ifcId)) { seen.add(ifcId); guids.push(ifcId); }
+                    } else {
+                        const uuid = (layer as any)?.UUID;
+                        if (uuid && typeof uuid === 'string' && !seen.has(uuid)) {
+                            seen.add(uuid);
+                            smdxUuids.push(uuid);
+                        }
+                    }
                 }
             } catch { /* ignore */ }
             store.capturedGuids = guids;
+            store.capturedSmdxUuids = smdxUuids;
 
             ctx.showMessage(this.$tr('Вид захвачен'), 'info');
         },
@@ -959,32 +988,38 @@ export default defineComponent({
             }
             const snap = JSON.parse(JSON.stringify(stored));
 
-            // Capture current IFC selection (same logic as captureSelection)
+            // Capture current selection (IFC or SMDX)
             const newGuids: string[] = [];
+            const newSmdxUuids: string[] = [];
             const seen = new Set<string>();
-            const extractGuid = (layer: any): string | undefined => {
-                if (!layer || typeof layer.typedValueExpanded !== 'function') return undefined;
-                try {
-                    const v = layer.typedValueExpanded('ifc.id')?.$value;
-                    if (v) return String(v);
-                } catch { /* ignore */ }
-                return undefined;
-            };
             try {
                 for (const obj of cadview.layer.selectedObjects()) {
                     const layer = (obj as any)?.layer ?? obj;
-                    const id = extractGuid(layer);
-                    if (id && !seen.has(id)) { seen.add(id); newGuids.push(id); }
+                    let ifcId: string | undefined;
+                    if (typeof layer?.typedValueExpanded === 'function') {
+                        try {
+                            const v = layer.typedValueExpanded('ifc.id')?.$value;
+                            if (v) ifcId = String(v);
+                        } catch { /* ignore */ }
+                    }
+                    if (ifcId) {
+                        if (!seen.has(ifcId)) { seen.add(ifcId); newGuids.push(ifcId); }
+                    } else {
+                        const uuid = (layer as any)?.UUID;
+                        if (uuid && typeof uuid === 'string' && !seen.has(uuid)) {
+                            seen.add(uuid);
+                            newSmdxUuids.push(uuid);
+                        }
+                    }
                 }
             } catch { /* ignore */ }
 
-            // Resolve components update via showQuickPick
+            // Resolve IFC components update
             const existingGuids = new Set(vp.components.map(c => c.ifcGuid));
             const freshGuids = newGuids.filter(g => !existingGuids.has(g));
             let newComponents = vp.components;
 
             if (newGuids.length === 0) {
-                // No selection — ask whether to clear or keep (only if there's something to keep)
                 if (vp.components.length > 0) {
                     const choice = await ctx.showQuickPick(
                         [
@@ -998,10 +1033,8 @@ export default defineComponent({
                     }
                 }
             } else {
-                // Selection is identical to existing components — nothing to ask
                 const isIdentical = freshGuids.length === 0 && newGuids.length === vp.components.length;
                 if (!isIdentical) {
-                    // Has selection — ask replace / merge / keep
                     const items: { label: string; description?: string }[] = [
                         { label: this.$tr('Заменить на выделенные'), description: this.$tr('Элементов: {0}', newGuids.length) },
                     ];
@@ -1026,6 +1059,52 @@ export default defineComponent({
                 }
             }
 
+            // Resolve SMDX components update
+            const existingSmdxUuids = new Set((vp.smdxComponents ?? []).map(c => c.uuid));
+            const freshSmdxUuids = newSmdxUuids.filter(u => !existingSmdxUuids.has(u));
+            const existingSmdxCount = vp.smdxComponents?.length ?? 0;
+            let newSmdxComponents = vp.smdxComponents;
+
+            if (newSmdxUuids.length === 0) {
+                if (existingSmdxCount > 0) {
+                    const choice = await ctx.showQuickPick(
+                        [
+                            { label: this.$tr('Оставить прежний список'), description: this.$tr('Элементов: {0}', existingSmdxCount) },
+                            { label: this.$tr('Обнулить список элементов') },
+                        ],
+                        { title: this.$tr('Выделенные SMDX-элементы'), placeHolder: this.$tr('Нет выделения в модели') },
+                    );
+                    if ((choice as any)?.label === this.$tr('Обнулить список элементов')) {
+                        newSmdxComponents = [];
+                    }
+                }
+            } else {
+                const isIdentical = freshSmdxUuids.length === 0 && newSmdxUuids.length === existingSmdxCount;
+                if (!isIdentical) {
+                    const items: { label: string; description?: string }[] = [
+                        { label: this.$tr('Заменить на выделенные'), description: this.$tr('Элементов: {0}', newSmdxUuids.length) },
+                    ];
+                    if (freshSmdxUuids.length > 0) {
+                        items.push({ label: this.$tr('Дополнить выделенными'), description: this.$tr('+{0} новых, итого: {1}', freshSmdxUuids.length, existingSmdxCount + freshSmdxUuids.length) });
+                    }
+                    items.push({ label: this.$tr('Оставить прежний список'), description: this.$tr('Элементов: {0}', existingSmdxCount) });
+
+                    const choice = await ctx.showQuickPick(items, {
+                        title: this.$tr('Выделенные SMDX-элементы'),
+                        placeHolder: this.$tr('Выделено в модели: {0}', newSmdxUuids.length),
+                    });
+                    const chosen = (choice as any)?.label;
+                    if (chosen === this.$tr('Заменить на выделенные')) {
+                        newSmdxComponents = newSmdxUuids.map(u => ({ uuid: u }));
+                    } else if (chosen === this.$tr('Дополнить выделенными')) {
+                        newSmdxComponents = [
+                            ...(vp.smdxComponents ?? []),
+                            ...freshSmdxUuids.map(u => ({ uuid: u })),
+                        ];
+                    }
+                }
+            }
+
             vp.camera = {
                 viewPoint: [snap.position[0], snap.position[1], snap.position[2]],
                 direction: [snap.dir[0], snap.dir[1], snap.dir[2]],
@@ -1034,6 +1113,7 @@ export default defineComponent({
                 platformData: snap,
             };
             vp.components = newComponents;
+            vp.smdxComponents = newSmdxComponents?.length ? newSmdxComponents : undefined;
 
             const t = this.selectedTopic;
 
@@ -1132,15 +1212,27 @@ export default defineComponent({
             const snap = JSON.parse(JSON.stringify(stored));
 
             const guids: string[] = [];
+            const smdxUuids: string[] = [];
             const seen = new Set<string>();
             try {
                 for (const obj of cadview.layer.selectedObjects()) {
                     const layer = (obj as any)?.layer ?? obj;
-                    if (typeof layer?.typedValueExpanded !== 'function') continue;
-                    try {
-                        const v = layer.typedValueExpanded('ifc.id')?.$value;
-                        if (v) { const s = String(v); if (!seen.has(s)) { seen.add(s); guids.push(s); } }
-                    } catch { /* ignore */ }
+                    let ifcId: string | undefined;
+                    if (typeof layer?.typedValueExpanded === 'function') {
+                        try {
+                            const v = layer.typedValueExpanded('ifc.id')?.$value;
+                            if (v) ifcId = String(v);
+                        } catch { /* ignore */ }
+                    }
+                    if (ifcId) {
+                        if (!seen.has(ifcId)) { seen.add(ifcId); guids.push(ifcId); }
+                    } else {
+                        const uuid = (layer as any)?.UUID;
+                        if (uuid && typeof uuid === 'string' && !seen.has(uuid)) {
+                            seen.add(uuid);
+                            smdxUuids.push(uuid);
+                        }
+                    }
                 }
             } catch { /* ignore */ }
 
@@ -1152,6 +1244,7 @@ export default defineComponent({
                 [snap.up[0], snap.up[1], snap.up[2]],
                 guids,
                 snap,
+                smdxUuids,
             );
 
             const snapshotBlob = await this.tryCanvasCapture();
@@ -1164,45 +1257,6 @@ export default defineComponent({
             t.viewpoints.push(viewpoint);
             this.markDirty(t.guid);
             ctx.showMessage(this.$tr('Вид добавлен'), 'info');
-        },
-
-        captureSelection() {
-            const ctx = this.$ctx();
-            const cadview = ctx.cadview;
-
-            if (!cadview) {
-                ctx.showMessage(this.$tr('Нет активного чертежа'), 'warning');
-                return;
-            }
-
-            const guids: string[] = [];
-            const seen = new Set<string>();
-
-            const extractFromLayer = (layer: any): string | undefined => {
-                if (!layer || typeof layer.typedValueExpanded !== 'function') return undefined;
-                try {
-                    const prop = layer.typedValueExpanded('ifc.id');
-                    const v = prop?.$value;
-                    if (v) return String(v);
-                } catch { /* ignore */ }
-                return undefined;
-            };
-
-            try {
-                for (const obj of cadview.layer.selectedObjects()) {
-                    // selectedObjects() returns DwgEntity (e.g. DwgModel3d).
-                    // IFC properties live on the entity's DwgLayer, not on the entity itself.
-                    const layer = (obj as any)?.layer ?? obj;
-                    const id = extractFromLayer(layer);
-                    if (id && !seen.has(id)) {
-                        seen.add(id);
-                        guids.push(id);
-                    }
-                }
-            } catch { /* ignore */ }
-
-            store.capturedGuids = guids;
-            ctx.showMessage(this.$tr('Захвачено IFC-объектов: {0}', guids.length), 'info');
         },
 
         onThumbClick(topic: typeof store.topics[0]) {
@@ -1341,6 +1395,7 @@ export default defineComponent({
                 store.capturedCamera?.upVector ?? [0, 1, 0],
                 store.capturedGuids,
                 store.capturedCamera?.platformData,
+                store.capturedSmdxUuids,
             );
             if (!store.capturedCamera) viewpoint.camera = undefined;
             if (store.newSnapshotBlob) viewpoint.snapshotFile = 'snapshot.png';

@@ -12,11 +12,16 @@ export interface BcfCamera {
     platformData?: any;
 }
 
+export interface SmdxComponent {
+    uuid: string;
+}
+
 export interface BcfViewpoint {
     guid: string;
     snapshotFile?: string;
     viewpointFile: string;
     components: BcfComponent[];
+    smdxComponents?: SmdxComponent[];
     camera?: BcfCamera;
 }
 

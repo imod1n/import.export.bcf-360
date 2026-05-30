@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/albatros/schema.json",
   "name": "i.m.import.export.bcf",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "displayName": "Импорт и экспорт BCF",
   "description": "Просмотр, создание и редактирование замечаний в формате BCF",
   "main": "src/index.ts",

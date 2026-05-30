@@ -27,6 +27,7 @@ export interface StoreState {
     newSnapshotName: string | null;
     capturedCamera: BcfCamera | null;
     capturedGuids: string[];
+    capturedSmdxUuids: string[];
 }
 
 export const store = reactive<StoreState>({
@@ -45,6 +46,7 @@ export const store = reactive<StoreState>({
     newSnapshotName: null,
     capturedCamera: null,
     capturedGuids: [],
+    capturedSmdxUuids: [],
 });
 
 export function getSelectedTopic(): BcfTopic | undefined {

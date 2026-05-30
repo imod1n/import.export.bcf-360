@@ -69,6 +69,10 @@ function platformJsonName(viewpointFile: string): string {
     return viewpointFile.replace(/\.[^.]+$/, '.json');
 }
 
+function selectionJsonName(viewpointFile: string): string {
+    return viewpointFile.replace(/\.[^.]+$/, '.selection.json');
+}
+
 export async function serializeBcf(
     zip: JSZip,
     topics: BcfTopic[],
@@ -83,6 +87,12 @@ export async function serializeBcf(
                 zip.file(`${folder}${vp.viewpointFile}`, serializeViewpoint(vp));
                 if (vp.camera?.platformData) {
                     zip.file(`${folder}${platformJsonName(vp.viewpointFile)}`, JSON.stringify(vp.camera.platformData));
+                }
+                const selPath = `${folder}${selectionJsonName(vp.viewpointFile)}`;
+                if (vp.smdxComponents?.length) {
+                    zip.file(selPath, JSON.stringify({ type: 'smdx', components: vp.smdxComponents }));
+                } else {
+                    zip.remove(selPath);
                 }
             }
         }
@@ -105,6 +115,9 @@ export function createNewTopicFolder(
             if (vp.camera?.platformData) {
                 zip.file(`${folder}${platformJsonName(vp.viewpointFile)}`, JSON.stringify(vp.camera.platformData));
             }
+            if (vp.smdxComponents?.length) {
+                zip.file(`${folder}${selectionJsonName(vp.viewpointFile)}`, JSON.stringify({ type: 'smdx', components: vp.smdxComponents }));
+            }
         }
         if (snapshotBlob && vp.snapshotFile) {
             zip.file(`${folder}${vp.snapshotFile}`, snapshotBlob);
@@ -119,11 +132,13 @@ export function buildViewpointFromCamera(
     up: [number, number, number],
     ifcGuids: string[],
     platformData?: any,
+    smdxUuids?: string[],
 ): BcfViewpoint {
     return {
         guid: vpGuid,
         viewpointFile: 'viewpoint.bcfv',
         components: ifcGuids.map(g => ({ ifcGuid: g })),
+        smdxComponents: smdxUuids?.length ? smdxUuids.map(u => ({ uuid: u })) : undefined,
         camera: {
             viewPoint: position,
             direction,

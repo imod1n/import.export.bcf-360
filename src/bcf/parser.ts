@@ -223,6 +223,17 @@ export async function parseBcfFile(data: Uint8Array, fileName: string): Promise<
                 } catch { /* ignore malformed sidecar */ }
             }
 
+            const selName = vpRef.file.replace(/\.[^.]+$/, '.selection.json');
+            const selFile = zip.file(`${folder}/${selName}`);
+            if (selFile) {
+                try {
+                    const data = JSON.parse(await selFile.async('string'));
+                    if (Array.isArray(data.components)) {
+                        vp.smdxComponents = data.components;
+                    }
+                } catch { /* ignore malformed sidecar */ }
+            }
+
             viewpoints.push(vp);
         }
 
