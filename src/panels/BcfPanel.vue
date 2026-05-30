@@ -442,6 +442,14 @@ export default defineComponent({
             return !!u && t.creationAuthor === u;
         },
     },
+    async mounted() {
+        const action = store.pendingAction;
+        if (action) {
+            store.pendingAction = null;
+            if (action === 'create') this.createNewFile();
+            else if (action === 'open') await this.openFile();
+        }
+    },
     watch: {
         'store.selectedTopicGuid'(guid: string | null) {
             const topic = guid ? store.topics.find(t => t.guid === guid) : null;
@@ -449,6 +457,12 @@ export default defineComponent({
             this.editPriority = topic?.priority ?? '';
             this.editAssignedTo = topic?.assignedTo ?? '';
             this.newComment = '';
+        },
+        async 'store.pendingAction'(action: string | null) {
+            if (!action) return;
+            store.pendingAction = null;
+            if (action === 'create') this.createNewFile();
+            else if (action === 'open') await this.openFile();
         },
     },
     methods: {

@@ -33,20 +33,47 @@
         "label": "Показать/скрыть панель BCF",
         "cmd": "showBcfPanelCmd",
         "icon": "assignment",
-        "description": "Показать или скрыть панель BCF-замечаний"
+        "description": "Показать или скрыть панель BCF-замечаний",
+        "flags": 128
       },
       "bcf_username": {
         "label": "Имя пользователя",
         "cmd": "setUsernameCmd",
         "icon": "person",
-        "description": "Задать имя автора для замечаний и комментариев"
+        "description": "Задать имя автора для замечаний и комментариев",
+        "flags": 128
+      },
+      "bcf_new": {
+        "label": "Создать новый файл BCF",
+        "cmd": "bcfNewCmd",
+        "icon": "note_add",
+        "description": "Создать новый пустой BCF-файл",
+        "flags": 128
+      },
+      "bcf_open_file": {
+        "label": "Открыть BCF-файл...",
+        "cmd": "bcfOpenFileCmd",
+        "icon": "folder_open",
+        "description": "Открыть существующий BCF-файл",
+        "flags": 128
       }
     },
     "dynamics": {},
     "menu": [
       {
-        "label": "BCF",
+        "label": "Формат BCF",
         "submenu": [
+          {
+            "action": "bcf_new"
+          },
+          {
+            "action": "bcf_open_file"
+          },
+          { "tag": "s" },
+          {
+            "action": "bcf_username"
+          },
+          { "tag": "s" },
           {
             "action": "bcf_open"
           }

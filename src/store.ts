@@ -11,6 +11,7 @@ export interface StoreState {
     zip: JSZip | null;
     isDirty: boolean;
     username: string;
+    pendingAction: 'open' | 'create' | null;
 }
 
 export const store = reactive<StoreState>({
@@ -22,6 +23,7 @@ export const store = reactive<StoreState>({
     zip: null,
     isDirty: false,
     username: '',
+    pendingAction: null,
 });
 
 export function getSelectedTopic(): BcfTopic | undefined {

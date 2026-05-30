@@ -31,6 +31,24 @@ export default {
         }
     },
 
+    bcfNewCmd: (ctx: Context): void => {
+        store.pendingAction = 'create';
+        const panelBar = (ctx as any).manager?.panelBar;
+        if (panelBar) {
+            const target = panelBar.views?.find((v: any) => v.id?.includes('bcfContainer'));
+            if (target) { panelBar.visible = true; panelBar.activeView = target; }
+        }
+    },
+
+    bcfOpenFileCmd: (ctx: Context): void => {
+        store.pendingAction = 'open';
+        const panelBar = (ctx as any).manager?.panelBar;
+        if (panelBar) {
+            const target = panelBar.views?.find((v: any) => v.id?.includes('bcfContainer'));
+            if (target) { panelBar.visible = true; panelBar.activeView = target; }
+        }
+    },
+
     setUsernameCmd: async (ctx: Context): Promise<void> => {
         const current = store.username || (ctx.manager as any)?.username || 'Unknown';
 
